@@ -1,0 +1,15 @@
+{
+  "name": "PET - Personal Expense Tracker",
+  "short_name": "PET",
+  "description": "A private, local-first expense tracker.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0D10",
+  "theme_color": "#0B0D10",
+  "icons": [
+    { "src": "icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" }
+  ]
+}
