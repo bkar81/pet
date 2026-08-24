@@ -1283,7 +1283,10 @@ function openPicker(kind){
 
 /* ============================= SETTINGS VIEW ============================= */
 let settingsSeg = "categories";
-const collapsedGroups = {categories:new Set(), accounts:new Set()};
+// Tracks which groups the user has explicitly opened this session — everything
+// starts collapsed on every fresh load, since that's much faster to scan and
+// scroll through, especially with several categories/accounts configured.
+const expandedGroups = {categories:new Set(), accounts:new Set()};
 document.querySelectorAll("#settingsSeg button").forEach(b=>{
   b.addEventListener("click", ()=>{
     document.querySelectorAll("#settingsSeg button").forEach(x=>x.classList.remove("active"));
@@ -1303,10 +1306,6 @@ function renderSettingsView(){
   const section = document.createElement("div");
   section.className = "settings-section";
   section.innerHTML = `<h3>${isCat?"Categories":"Account types"} — drag order with ▲▼</h3>`;
-  const sorted = sortByOrder(list);
-  sorted.forEach((top, idx)=>{
-    section.appendChild(buildGroupCard(top, isCat, list, idx, sorted.length));
-  });
   const addTop = document.createElement("div");
   addTop.className = "add-row-top";
   addTop.textContent = "+ Add " + (isCat? "category" : "account type");
@@ -1317,7 +1316,12 @@ function renderSettingsView(){
     list.push({id:uid(), name:name.trim(), order:nextOrder(list), subs:[], settlement:"direct"});
     save(); renderSettingsView();
   });
+  addTop.style.marginBottom = "14px";
   section.appendChild(addTop);
+  const sorted = sortByOrder(list);
+  sorted.forEach((top, idx)=>{
+    section.appendChild(buildGroupCard(top, isCat, list, idx, sorted.length));
+  });
   body.appendChild(section);
 }
 
@@ -1327,7 +1331,7 @@ function buildGroupCard(top, isCat, list, idx, count){
   const head = document.createElement("div");
   head.className = "group-head";
   const collapseKey = isCat ? "categories" : "accounts";
-  const isCollapsed = collapsedGroups[collapseKey].has(top.id);
+  const isCollapsed = !expandedGroups[collapseKey].has(top.id);
   if(isCollapsed) card.classList.add("collapsed");
   head.innerHTML = `
     <button class="settings-collapse" data-a="toggle" aria-label="Expand or collapse">⌄</button>
@@ -1339,13 +1343,13 @@ function buildGroupCard(top, isCat, list, idx, count){
   `;
   head.querySelector('[data-a="toggle"]').addEventListener("click", e=>{
     e.stopPropagation();
-    if(collapsedGroups[collapseKey].has(top.id)) collapsedGroups[collapseKey].delete(top.id);
-    else collapsedGroups[collapseKey].add(top.id);
+    if(expandedGroups[collapseKey].has(top.id)) expandedGroups[collapseKey].delete(top.id);
+    else expandedGroups[collapseKey].add(top.id);
     renderSettingsView();
   });
   head.querySelector('.nm').addEventListener("click", ()=>{
-    if(collapsedGroups[collapseKey].has(top.id)) collapsedGroups[collapseKey].delete(top.id);
-    else collapsedGroups[collapseKey].add(top.id);
+    if(expandedGroups[collapseKey].has(top.id)) expandedGroups[collapseKey].delete(top.id);
+    else expandedGroups[collapseKey].add(top.id);
     renderSettingsView();
   });
   head.querySelector('[data-a="up"]').addEventListener("click", ()=> moveItem(list, top, -1));
