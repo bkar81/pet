@@ -1,0 +1,512 @@
+{
+  "backupType": "PET_COMPLETE",
+  "version": 1,
+  "exportedAt": "2026-08-19T12:00:00.000Z",
+  "categories": [
+    {
+      "id": "nyaa0nzpi",
+      "name": "Food",
+      "icon": "🍽️",
+      "order": 0,
+      "subs": [
+        {
+          "id": "x2agt6j3q",
+          "name": "Breakfast",
+          "order": 0
+        },
+        {
+          "id": "ertr41gcm",
+          "name": "Lunch",
+          "order": 1
+        },
+        {
+          "id": "q3llsbbuu",
+          "name": "Dinner",
+          "order": 2
+        },
+        {
+          "id": "xvebbbw0m",
+          "name": "Snacks",
+          "order": 3
+        },
+        {
+          "id": "r1cnunlvh",
+          "name": "Eating out",
+          "order": 4
+        }
+      ]
+    },
+    {
+      "id": "4j1ra7trc",
+      "name": "Grocery",
+      "icon": "🛒",
+      "order": 1,
+      "subs": [
+        {
+          "id": "6y185e8dk",
+          "name": "General",
+          "order": 0
+        }
+      ]
+    },
+    {
+      "id": "lu15xwpsz",
+      "name": "Personal",
+      "icon": "👤",
+      "order": 2,
+      "subs": [
+        {
+          "id": "mt4888nlx",
+          "name": "Haircut",
+          "order": 0
+        },
+        {
+          "id": "5y43ovetr",
+          "name": "Self-care",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "id": "z8ajf2a8v",
+      "name": "Apparel",
+      "icon": "👕",
+      "order": 3,
+      "subs": [
+        {
+          "id": "gaysgtspv",
+          "name": "General",
+          "order": 0
+        }
+      ]
+    },
+    {
+      "id": "ssihzbrj0",
+      "name": "Household",
+      "icon": "🏠",
+      "order": 4,
+      "subs": [
+        {
+          "id": "4mp0kq0wz",
+          "name": "Cleaning",
+          "order": 0
+        },
+        {
+          "id": "nlz8mvtbf",
+          "name": "Kitchen",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "id": "ewvoo7q2m",
+      "name": "Recharge",
+      "icon": "🔋",
+      "order": 5,
+      "subs": [
+        {
+          "id": "wj60ktyzw",
+          "name": "Mobile",
+          "order": 0
+        },
+        {
+          "id": "yqoi4h7f6",
+          "name": "DTH",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "id": "ih858e90k",
+      "name": "Books/Stationery",
+      "icon": "📚",
+      "order": 6,
+      "subs": [
+        {
+          "id": "es4dh2c0e",
+          "name": "Books",
+          "order": 0
+        },
+        {
+          "id": "un4grfqg9",
+          "name": "Stationery",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "id": "4ozqtiso3",
+      "name": "Fancy Store",
+      "icon": "💎",
+      "order": 7,
+      "subs": [
+        {
+          "id": "yuc0ed3r8",
+          "name": "General",
+          "order": 0
+        }
+      ]
+    },
+    {
+      "id": "z0rciyxan",
+      "name": "Health",
+      "icon": "🩺",
+      "order": 8,
+      "subs": [
+        {
+          "id": "h9yw8fq2x",
+          "name": "Medicine",
+          "order": 0
+        },
+        {
+          "id": "g50yimj6c",
+          "name": "Doctor",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "id": "5surenyl9",
+      "name": "Transportation",
+      "icon": "🚗",
+      "order": 9,
+      "subs": [
+        {
+          "id": "3ae26viti",
+          "name": "Fuel",
+          "order": 0
+        },
+        {
+          "id": "03nyy3lj7",
+          "name": "Cab",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "id": "wfaa523dd",
+      "name": "Gift",
+      "icon": "🎁",
+      "order": 10,
+      "subs": [
+        {
+          "id": "nphjf1taa",
+          "name": "General",
+          "order": 0
+        }
+      ]
+    },
+    {
+      "id": "db0kqcfse",
+      "name": "Other",
+      "icon": "🗂️",
+      "order": 11,
+      "subs": [
+        {
+          "id": "mp25qqcb9",
+          "name": "General",
+          "order": 0
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "id": "kom3rhcyo",
+      "name": "Credit Card",
+      "order": 0,
+      "settlement": "payment",
+      "subs": [
+        {
+          "id": "i5d8nrn9q",
+          "name": "HDFC Regalia",
+          "order": 0
+        },
+        {
+          "id": "gca4rd7dd",
+          "name": "ICICI Amazon Pay",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "id": "9z9lp5eu1",
+      "name": "Debit Card",
+      "order": 1,
+      "settlement": "direct",
+      "subs": [
+        {
+          "id": "xgm9shkoi",
+          "name": "HDFC Debit",
+          "order": 0
+        }
+      ]
+    },
+    {
+      "id": "wyy3njhuk",
+      "name": "UPI",
+      "order": 2,
+      "settlement": "direct",
+      "subs": [
+        {
+          "id": "n1irrnoh7",
+          "name": "GPay",
+          "order": 0
+        },
+        {
+          "id": "vywhncljw",
+          "name": "PhonePe",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "id": "vky4k5use",
+      "name": "Bank Transfer",
+      "order": 3,
+      "settlement": "direct",
+      "subs": [
+        {
+          "id": "nqh6283tl",
+          "name": "SBI Savings",
+          "order": 0
+        }
+      ]
+    },
+    {
+      "id": "sj56xk7a8",
+      "name": "Cash",
+      "order": 4,
+      "settlement": "direct",
+      "subs": [
+        {
+          "id": "sepht7rwg",
+          "name": "Cash",
+          "order": 0
+        }
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "id": "ay4a3a1ll",
+      "date": "2026-08-12T00:00:00",
+      "amount": 120,
+      "catId": "nyaa0nzpi",
+      "subId": "x2agt6j3q",
+      "accId": "9z9lp5eu1",
+      "subAccId": "xgm9shkoi",
+      "note": "Idli & filter coffee",
+      "paid": false
+    },
+    {
+      "id": "p9qq9hhig",
+      "date": "2026-08-12T00:00:00",
+      "amount": 185,
+      "catId": "5surenyl9",
+      "subId": "03nyy3lj7",
+      "accId": "wyy3njhuk",
+      "subAccId": "n1irrnoh7",
+      "note": "Ola to office",
+      "paid": false
+    },
+    {
+      "id": "c14igrqtw",
+      "date": "2026-08-12T00:00:00",
+      "amount": 850,
+      "catId": "4j1ra7trc",
+      "subId": "6y185e8dk",
+      "accId": "kom3rhcyo",
+      "subAccId": "i5d8nrn9q",
+      "note": "BigBasket order",
+      "paid": false
+    },
+    {
+      "id": "fw4jlwmek",
+      "date": "2026-08-13T00:00:00",
+      "amount": 150,
+      "catId": "nyaa0nzpi",
+      "subId": "ertr41gcm",
+      "accId": "sj56xk7a8",
+      "subAccId": "sepht7rwg",
+      "note": "Office lunch",
+      "paid": false
+    },
+    {
+      "id": "d4xl093af",
+      "date": "2026-08-13T00:00:00",
+      "amount": 399,
+      "catId": "ewvoo7q2m",
+      "subId": "wj60ktyzw",
+      "accId": "wyy3njhuk",
+      "subAccId": "vywhncljw",
+      "note": "Airtel recharge",
+      "paid": false
+    },
+    {
+      "id": "quctlaeyz",
+      "date": "2026-08-14T00:00:00",
+      "amount": 1240,
+      "catId": "nyaa0nzpi",
+      "subId": "r1cnunlvh",
+      "accId": "kom3rhcyo",
+      "subAccId": "gca4rd7dd",
+      "note": "Dinner with friends",
+      "paid": true
+    },
+    {
+      "id": "9pkuf9xv8",
+      "date": "2026-08-14T00:00:00",
+      "amount": 560,
+      "catId": "ssihzbrj0",
+      "subId": "nlz8mvtbf",
+      "accId": "9z9lp5eu1",
+      "subAccId": "xgm9shkoi",
+      "note": "Kitchen containers",
+      "paid": false
+    },
+    {
+      "id": "l7fqliq1y",
+      "date": "2026-08-15T00:00:00",
+      "amount": 2199,
+      "catId": "z8ajf2a8v",
+      "subId": "gaysgtspv",
+      "accId": "kom3rhcyo",
+      "subAccId": "i5d8nrn9q",
+      "note": "Myntra - Shirt",
+      "paid": false
+    },
+    {
+      "id": "hu841xfel",
+      "date": "2026-08-15T00:00:00",
+      "amount": 450,
+      "catId": "ih858e90k",
+      "subId": "es4dh2c0e",
+      "accId": "wyy3njhuk",
+      "subAccId": "n1irrnoh7",
+      "note": "Amazon - Notebook set",
+      "paid": false
+    },
+    {
+      "id": "o8h28qw48",
+      "date": "2026-08-15T00:00:00",
+      "amount": 300,
+      "catId": "lu15xwpsz",
+      "subId": "mt4888nlx",
+      "accId": "sj56xk7a8",
+      "subAccId": "sepht7rwg",
+      "note": "Salon",
+      "paid": false
+    },
+    {
+      "id": "d2rn731oo",
+      "date": "2026-08-16T00:00:00",
+      "amount": 680,
+      "catId": "nyaa0nzpi",
+      "subId": "q3llsbbuu",
+      "accId": "wyy3njhuk",
+      "subAccId": "vywhncljw",
+      "note": "Zomato order",
+      "paid": false
+    },
+    {
+      "id": "m7bpwgyo7",
+      "date": "2026-08-16T00:00:00",
+      "amount": 1000,
+      "catId": "wfaa523dd",
+      "subId": "nphjf1taa",
+      "accId": "vky4k5use",
+      "subAccId": "nqh6283tl",
+      "note": "Birthday gift transfer",
+      "paid": false
+    },
+    {
+      "id": "yle23po8s",
+      "date": "2026-08-17T00:00:00",
+      "amount": 1500,
+      "catId": "5surenyl9",
+      "subId": "3ae26viti",
+      "accId": "kom3rhcyo",
+      "subAccId": "i5d8nrn9q",
+      "note": "Petrol",
+      "paid": true
+    },
+    {
+      "id": "dhjyrjhnh",
+      "date": "2026-08-17T00:00:00",
+      "amount": 90,
+      "catId": "nyaa0nzpi",
+      "subId": "x2agt6j3q",
+      "accId": "sj56xk7a8",
+      "subAccId": "sepht7rwg",
+      "note": "Tea & snacks",
+      "paid": false
+    },
+    {
+      "id": "cq2lweh6e",
+      "date": "2026-08-18T00:00:00",
+      "amount": 275,
+      "catId": "z0rciyxan",
+      "subId": "h9yw8fq2x",
+      "accId": "wyy3njhuk",
+      "subAccId": "n1irrnoh7",
+      "note": "Pharmacy",
+      "paid": false
+    },
+    {
+      "id": "2upt8r0e8",
+      "date": "2026-08-18T00:00:00",
+      "amount": 899,
+      "catId": "4ozqtiso3",
+      "subId": "yuc0ed3r8",
+      "accId": "kom3rhcyo",
+      "subAccId": "gca4rd7dd",
+      "note": "Perfume",
+      "paid": false
+    },
+    {
+      "id": "hqgwfcluz",
+      "date": "2026-08-19T00:00:00",
+      "amount": 640,
+      "catId": "4j1ra7trc",
+      "subId": "6y185e8dk",
+      "accId": "9z9lp5eu1",
+      "subAccId": "xgm9shkoi",
+      "note": "Vegetables & fruits",
+      "paid": false
+    },
+    {
+      "id": "jvaql71qq",
+      "date": "2026-08-19T00:00:00",
+      "amount": 210,
+      "catId": "nyaa0nzpi",
+      "subId": "ertr41gcm",
+      "accId": "wyy3njhuk",
+      "subAccId": "vywhncljw",
+      "note": "Swiggy",
+      "paid": false
+    },
+    {
+      "id": "m84479edv",
+      "date": "2026-08-19T00:00:00",
+      "amount": 150,
+      "catId": "db0kqcfse",
+      "subId": "mp25qqcb9",
+      "accId": "sj56xk7a8",
+      "subAccId": "sepht7rwg",
+      "note": "Misc",
+      "paid": false
+    },
+    {
+      "id": "01ik7ngu7",
+      "date": "2026-08-19T00:00:00",
+      "amount": 320,
+      "catId": "ewvoo7q2m",
+      "subId": "yqoi4h7f6",
+      "accId": "wyy3njhuk",
+      "subAccId": "n1irrnoh7",
+      "note": "Tata Play recharge",
+      "paid": false
+    }
+  ]
+}
