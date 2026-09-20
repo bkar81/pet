@@ -1,45 +1,94 @@
-// PET service worker — caches the app shell so it keeps working fully offline,
-// even if this site later becomes unreachable. Google Drive/Sheets calls are
-// deliberately never cached: those always need a live network request.
-const CACHE_NAME = "pet-cache-v1";
-const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.png"];
+// PET service worker
+// Caches the app shell for offline use and supports
+// notification of new PET versions.
 
+const CACHE_NAME = "pet-cache-v2";
+
+const ASSETS = [
+  "./",
+  "./index.html",
+  "./manifest.json",
+  "./icon.png"
+];
+
+// Install the new service worker and cache the latest app shell.
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(ASSETS))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
+// Remove old PET caches and take control of open pages.
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    caches.keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key !== CACHE_NAME)
+            .map((key) => caches.delete(key))
+        )
+      )
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
+});
+
+// Allow the PET app to tell the waiting service worker
+// to become active immediately.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Never intercept Google API / sign-in calls — those must always hit the network.
-  if (url.hostname.endsWith("googleapis.com") || url.hostname.endsWith("google.com")) {
+  // Never intercept Google API / Google sign-in requests.
+  if (
+    url.hostname.endsWith("googleapis.com") ||
+    url.hostname.endsWith("google.com")
+  ) {
+    return;
+  }
+
+  // Only handle GET requests.
+  if (event.request.method !== "GET") {
     return;
   }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
+
+      // For PET's app shell, check the network first.
+      // This allows new published versions to be detected promptly.
+      const isAppShell =
+        url.pathname.endsWith("/index.html") ||
+        url.pathname.endsWith("/") ||
+        url.pathname.endsWith("/pet");
+
       const networkFetch = fetch(event.request)
-        .then((res) => {
-          if (res && res.status === 200 && event.request.method === "GET") {
-            const resClone = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
+        .then((response) => {
+
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
           }
-          return res;
+
+          return response;
         })
         .catch(() => cached);
-      return cached || networkFetch;
+
+      // App shell: Network first, cached version if offline.
+      // Other resources: Cache first, network fallback.
+      return isAppShell
+        ? networkFetch
+        : (cached || networkFetch);
     })
   );
 });
