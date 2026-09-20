@@ -12,6 +12,41 @@
 <link rel="icon" type="image/png" id="favIcon" href="">
 <link rel="apple-touch-icon" id="appleIcon" href="./icon.png">
 <style>
+.pet-update-check-status {
+  min-height: 18px;
+  margin-top: 7px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+/* PET - Check for Updates */
+.pet-check-update-btn {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pet-check-update-btn:active {
+  transform: scale(.99);
+}
+.pet-check-update-btn.is-checking {
+  opacity: .65;
+  pointer-events: none;
+}
+
 /* PET - New Version Notification */
 .pet-update-notice {
   position: fixed; left: 16px; right: 16px;
@@ -620,7 +655,13 @@ Result → HDFC Regalia outstanding reduced by ₹2,500</div>
         <div class="about-card">
           <h3>Version</h3>
           <p style="margin:0;color:var(--text-faint)">Personal Expense Tracker (PET) • v1.0.0 • Local-first, with optional Google Drive sync</p>
-        </div>
+        
+<button id="petCheckUpdateBtn" class="pet-check-update-btn" type="button">
+  <span aria-hidden="true">↻</span>
+  <span>Check for updates</span>
+</button>
+<div id="petUpdateCheckStatus" class="pet-update-check-status" aria-live="polite"></div>
+</div>
 
 <div class="about-card pet-share-card">
   <h3>Share this app</h3>
@@ -2385,14 +2426,19 @@ if (sharePetBtn) {
   });
 }
 
-/* PET - PWA update notification */
+/* PET - PWA update notification + manual update check */
 (function () {
   "use strict";
+
   if (!("serviceWorker" in navigator)) return;
 
   const notice = document.getElementById("petUpdateNotice");
   const updateNow = document.getElementById("petUpdateNow");
   const updateLater = document.getElementById("petUpdateLater");
+  const checkBtn = document.getElementById("petCheckUpdateBtn");
+  const checkStatus = document.getElementById("petUpdateCheckStatus");
+
+  let registration = null;
   let waitingWorker = null;
 
   function showUpdateNotice(worker) {
@@ -2404,34 +2450,97 @@ if (sharePetBtn) {
     if (notice) notice.classList.remove("is-visible");
   }
 
+  function setCheckStatus(message) {
+    if (checkStatus) checkStatus.textContent = message;
+  }
+
+  async function checkForUpdate(manual) {
+    if (!registration) {
+      setCheckStatus("Update check is not ready yet.");
+      return;
+    }
+
+    if (checkBtn) {
+      checkBtn.classList.add("is-checking");
+      checkBtn.querySelector("span").textContent = "Checking…";
+    }
+
+    setCheckStatus("");
+
+    try {
+      await registration.update();
+
+      // A waiting worker means an update is already ready.
+      if (registration.waiting) {
+        showUpdateNotice(registration.waiting);
+        setCheckStatus("A new version is ready to install.");
+      } else if (manual) {
+        setCheckStatus("You're using the latest version of PET.");
+      }
+    } catch (error) {
+      console.warn("PET update check failed:", error);
+      if (manual) setCheckStatus("Could not check for updates. Please try again.");
+    } finally {
+      if (checkBtn) {
+        checkBtn.classList.remove("is-checking");
+        checkBtn.querySelector("span").textContent = "Check for updates";
+      }
+    }
+  }
+
   navigator.serviceWorker.register("./service-worker.js")
-    .then((registration) => {
-      if (registration.waiting) showUpdateNotice(registration.waiting);
+    .then((reg) => {
+      registration = reg;
+
+      // If an update was already downloaded while PET was closed,
+      // show the notification immediately.
+      if (registration.waiting) {
+        showUpdateNotice(registration.waiting);
+      }
 
       registration.addEventListener("updatefound", () => {
         const newWorker = registration.installing;
         if (!newWorker) return;
+
         newWorker.addEventListener("statechange", () => {
-          if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+          if (
+            newWorker.state === "installed" &&
+            navigator.serviceWorker.controller
+          ) {
             showUpdateNotice(newWorker);
           }
         });
       });
 
-      registration.update().catch(() => {});
+      // Perform the normal automatic check when PET opens.
+      checkForUpdate(false);
     })
-    .catch((error) => console.warn("PET service worker registration failed:", error));
+    .catch((error) => {
+      console.warn("PET service worker registration failed:", error);
+      setCheckStatus("Update service unavailable.");
+    });
+
+  if (checkBtn) {
+    checkBtn.addEventListener("click", () => checkForUpdate(true));
+  }
 
   if (updateNow) {
     updateNow.addEventListener("click", () => {
-      if (waitingWorker) waitingWorker.postMessage({ type: "SKIP_WAITING" });
+      if (waitingWorker) {
+        waitingWorker.postMessage({ type: "SKIP_WAITING" });
+      } else if (registration && registration.waiting) {
+        registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
       hideUpdateNotice();
     });
   }
 
-  if (updateLater) updateLater.addEventListener("click", hideUpdateNotice);
+  if (updateLater) {
+    updateLater.addEventListener("click", hideUpdateNotice);
+  }
 
   let refreshing = false;
+
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
     refreshing = true;
