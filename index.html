@@ -12,6 +12,38 @@
 <link rel="icon" type="image/png" id="favIcon" href="">
 <link rel="apple-touch-icon" id="appleIcon" href="./icon.png">
 <style>
+/* PET - New Version Notification */
+.pet-update-notice {
+  position: fixed; left: 16px; right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 99999;
+  display: none; padding: 14px; border: 1px solid rgba(217,164,65,.45);
+  border-radius: 14px; background: var(--bg-elev); color: var(--text);
+  box-shadow: 0 10px 28px rgba(0,0,0,.35);
+}
+.pet-update-notice.is-visible { display: block; }
+.pet-update-title { margin: 0 0 5px; font-size: 15px; font-weight: 800; }
+.pet-update-text { margin: 0 0 12px; color: var(--text-faint); font-size: 13px; line-height: 1.45; }
+.pet-update-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.pet-update-actions button { min-height: 40px; padding: 8px 15px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; }
+.pet-update-later { border: 1px solid var(--border); background: transparent; color: var(--text); }
+.pet-update-now { border: 0; background: var(--accent); color: #fff; }
+
+/* PET - Share App */
+.pet-share-card { position: relative; }
+.pet-share-card p { margin-bottom: 12px; }
+.pet-share-btn {
+  width: 100%; min-height: 48px; display: flex; align-items: center;
+  justify-content: center; gap: 9px; margin-top: 14px; padding: 12px 18px;
+  border: none; border-radius: 12px; background: var(--accent); color: #fff;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 3px 8px rgba(0,0,0,.12);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+.pet-share-btn:active { transform: scale(.98); box-shadow: 0 2px 5px rgba(0,0,0,.10); }
+.pet-share-icon { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.pet-share-icon svg { width: 20px; height: 20px; display: block; }
+
 :root{
   --bg:#0B0D10;
   --bg-elev:#14171C;
@@ -401,61 +433,18 @@ main{flex:1;overflow-y:auto;padding:0 0 90px;}
 .calc-key.add-result{grid-column:1/-1;background:#D9A441;color:#fff;border-color:#D9A441;font-size:17px;font-weight:800;}
 .calc-key.clear{color:#ef6a62;}
 
-
-
-/* ---- Share app ---- */
-.pet-share-card{
-  position:relative;
-}
-.pet-share-card p:last-of-type{
-  margin-bottom:0;
-}
-.pet-share-btn{
-  width:100%;
-  min-height:48px;
-  margin-top:15px;
-  padding:12px 18px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:9px;
-  border:1px solid rgba(217,164,65,.55);
-  border-radius:var(--radius-sm);
-  background:var(--accent);
-  color:var(--accent-ink);
-  font-size:15px;
-  font-weight:800;
-  letter-spacing:.1px;
-  box-shadow:0 5px 14px rgba(217,164,65,.16);
-  -webkit-tap-highlight-color:transparent;
-  transition:transform .12s ease,filter .12s ease,box-shadow .12s ease;
-}
-.pet-share-btn:active{
-  transform:scale(.985);
-  filter:brightness(.96);
-  box-shadow:0 3px 9px rgba(217,164,65,.12);
-}
-.pet-share-btn:focus-visible{
-  outline:2px solid var(--accent);
-  outline-offset:2px;
-}
-.pet-share-icon{
-  width:20px;
-  height:20px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  flex:0 0 20px;
-}
-.pet-share-icon svg{
-  width:20px;
-  height:20px;
-  display:block;
-}
-
 </style>
 </head>
 <body>
+<div id="petUpdateNotice" class="pet-update-notice" role="status" aria-live="polite">
+  <div class="pet-update-title">✨ New version available</div>
+  <p class="pet-update-text">A newer version of PET is ready. Update now to get the latest improvements.</p>
+  <div class="pet-update-actions">
+    <button id="petUpdateLater" class="pet-update-later" type="button">Later</button>
+    <button id="petUpdateNow" class="pet-update-now" type="button">Update</button>
+  </div>
+</div>
+
 <div id="app">
 
   <div class="topbar">
@@ -630,25 +619,25 @@ Result → HDFC Regalia outstanding reduced by ₹2,500</div>
 
         <div class="about-card">
           <h3>Version</h3>
-          <p style="margin:0;color:var(--text-faint)">Personal Expense Tracker (PET) • Local-first, with optional Google Drive sync</p>
+          <p style="margin:0;color:var(--text-faint)">Personal Expense Tracker (PET) • v1.0.0 • Local-first, with optional Google Drive sync</p>
         </div>
 
-        <div class="about-card pet-share-card">
-          <h3>Share this app</h3>
-          <p>Enjoying PET? Help someone else take control of their everyday expenses too.</p>
-          <p><b>Personal Expense Tracker (PET)</b> is designed to make expense tracking simple, organized, and private — helping you keep your personal finances in one place without unnecessary complexity.</p>
-          <p>Share PET with your family, friends, colleagues, or anyone looking for a simple way to keep track of their spending.</p>
-          <button class="pet-share-btn" id="sharePetBtn" type="button" aria-label="Share Personal Expense Tracker PET">
-            <span class="pet-share-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M7 8L12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M5 13V19C5 20.1 5.9 21 7 21H17C18.1 21 19 20.1 19 19V13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </span>
-            <span>Share PET</span>
-          </button>
-        </div>
+<div class="about-card pet-share-card">
+  <h3>Share this app</h3>
+  <p>Enjoying PET? Help someone else take control of their everyday expenses too.</p>
+  <p><b>Personal Expense Tracker (PET)</b> is designed to make expense tracking simple, organized, and private — helping you keep your personal finances in one place without unnecessary complexity.</p>
+  <p>Share PET with your family, friends, colleagues, or anyone looking for a simple way to keep track of their spending.</p>
+  <button id="sharePetBtn" class="pet-share-btn" type="button">
+    <span class="pet-share-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M7 8L12 3L17 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M5 13V19C5 20.1 5.9 21 7 21H17C18.1 21 19 20.1 19 19V13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <span>Share PET</span>
+  </button>
+</div>
       </div>
     </section>
 
@@ -2372,40 +2361,83 @@ function openCalculator(){
 }
 
 
-
-/* ============================= SHARE APP ============================= */
+/* PET - Share App */
 const sharePetBtn = document.getElementById("sharePetBtn");
-
-if(sharePetBtn){
-  sharePetBtn.addEventListener("click", async ()=>{
+if (sharePetBtn) {
+  sharePetBtn.addEventListener("click", async function () {
     const shareData = {
       title: "Personal Expense Tracker (PET)",
       text: "Try PET — a simple, private and easy-to-use Personal Expense Tracker.",
       url: "https://bkar81.github.io/pet/index.html"
     };
-
-    try{
-      if(navigator.share){
+    try {
+      if (navigator.share) {
         await navigator.share(shareData);
-        return;
-      }
-
-      if(navigator.clipboard && window.isSecureContext){
+      } else if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(shareData.url);
         alert("PET app link copied to clipboard.");
-        return;
+      } else {
+        window.prompt("Copy the PET app link:", shareData.url);
       }
-
-      window.prompt("Copy the PET app link:", shareData.url);
-    }catch(err){
-      // Closing/cancelling the Android share sheet is a normal user action.
-      if(err && err.name !== "AbortError"){
-        console.error("Unable to share PET:", err);
-      }
+    } catch (error) {
+      if (!error || error.name !== "AbortError") console.error("Unable to share PET:", error);
     }
   });
 }
 
+/* PET - PWA update notification */
+(function () {
+  "use strict";
+  if (!("serviceWorker" in navigator)) return;
+
+  const notice = document.getElementById("petUpdateNotice");
+  const updateNow = document.getElementById("petUpdateNow");
+  const updateLater = document.getElementById("petUpdateLater");
+  let waitingWorker = null;
+
+  function showUpdateNotice(worker) {
+    waitingWorker = worker || waitingWorker;
+    if (notice) notice.classList.add("is-visible");
+  }
+
+  function hideUpdateNotice() {
+    if (notice) notice.classList.remove("is-visible");
+  }
+
+  navigator.serviceWorker.register("./service-worker.js")
+    .then((registration) => {
+      if (registration.waiting) showUpdateNotice(registration.waiting);
+
+      registration.addEventListener("updatefound", () => {
+        const newWorker = registration.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener("statechange", () => {
+          if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+            showUpdateNotice(newWorker);
+          }
+        });
+      });
+
+      registration.update().catch(() => {});
+    })
+    .catch((error) => console.warn("PET service worker registration failed:", error));
+
+  if (updateNow) {
+    updateNow.addEventListener("click", () => {
+      if (waitingWorker) waitingWorker.postMessage({ type: "SKIP_WAITING" });
+      hideUpdateNotice();
+    });
+  }
+
+  if (updateLater) updateLater.addEventListener("click", hideUpdateNotice);
+
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+})();
 </script>
 </body>
 </html>
