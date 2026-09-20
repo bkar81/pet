@@ -657,8 +657,8 @@ Result → HDFC Regalia outstanding reduced by ₹2,500</div>
           <p style="margin:0;color:var(--text-faint)">Personal Expense Tracker (PET) • v1.0.0 • Local-first, with optional Google Drive sync</p>
         
 <button id="petCheckUpdateBtn" class="pet-check-update-btn" type="button">
-  <span aria-hidden="true">↻</span>
-  <span>Check for updates</span>
+  <span class="pet-check-icon" aria-hidden="true">↻</span>
+  <span class="pet-check-label">Check for updates</span>
 </button>
 <div id="petUpdateCheckStatus" class="pet-update-check-status" aria-live="polite"></div>
 </div>
@@ -2437,6 +2437,9 @@ if (sharePetBtn) {
   const updateLater = document.getElementById("petUpdateLater");
   const checkBtn = document.getElementById("petCheckUpdateBtn");
   const checkStatus = document.getElementById("petUpdateCheckStatus");
+  const checkLabel = checkBtn
+    ? checkBtn.querySelector(".pet-check-label")
+    : null;
 
   let registration = null;
   let waitingWorker = null;
@@ -2462,7 +2465,9 @@ if (sharePetBtn) {
 
     if (checkBtn) {
       checkBtn.classList.add("is-checking");
-      checkBtn.querySelector("span").textContent = "Checking…";
+      if (checkLabel) {
+        checkLabel.textContent = "Checking…";
+      }
     }
 
     setCheckStatus("");
@@ -2483,7 +2488,9 @@ if (sharePetBtn) {
     } finally {
       if (checkBtn) {
         checkBtn.classList.remove("is-checking");
-        checkBtn.querySelector("span").textContent = "Check for updates";
+        if (checkLabel) {
+          checkLabel.textContent = "Check for updates";
+        }
       }
     }
   }
