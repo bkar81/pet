@@ -1006,22 +1006,27 @@ function applyCustomRange(){
     document.body.appendChild(overlay);
     titleEl=overlay.querySelector("#petDialogTitle"); messageEl=overlay.querySelector("#petDialogMessage");
     inputEl=overlay.querySelector("#petDialogInput"); cancelBtn=overlay.querySelector("#petDialogCancel"); okBtn=overlay.querySelector("#petDialogOk");
-    okBtn.onclick=()=>finish(true); cancelBtn.onclick=()=>finish(false);
-    overlay.onclick=e=>{if(e.target===overlay) finish(false);};
-    inputEl.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();finish(true);} if(e.key==="Escape"){e.preventDefault();finish(false);}};
+    okBtn.onclick=()=>finish(true);
+    cancelBtn.onclick=()=>finish(false,true);
+    overlay.onclick=e=>{if(e.target===overlay) finish(false,true);};
+    inputEl.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();finish(true);} if(e.key==="Escape"){e.preventDefault();finish(false,true);}};
   }
-  function finish(value){
+  function finish(value, cancelled=false){
     if(!resolver) return;
     const r=resolver; resolver=null;
     overlay.style.display="none";
-    const v=mode==="prompt" ? inputEl.value : value;
+    const v=mode==="prompt" ? (cancelled ? null : inputEl.value) : value;
     mode=null;
     r(v);
   }
   window.showNotice=function(title,message){
-    ensureDialog(); mode="notice"; resolver=null;
-    titleEl.textContent=title; messageEl.textContent=message; inputEl.style.display="none"; cancelBtn.style.display="none"; okBtn.style.display="";
-    overlay.style.display="flex"; okBtn.focus();
+    ensureDialog();
+    return new Promise(resolve=>{
+      mode="notice"; resolver=resolve;
+      titleEl.textContent=title; messageEl.textContent=message;
+      inputEl.style.display="none"; cancelBtn.style.display="none"; okBtn.style.display="";
+      overlay.style.display="flex"; okBtn.focus();
+    });
   };
   window.petConfirm=function(title,message){
     ensureDialog();
