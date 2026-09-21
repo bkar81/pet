@@ -257,38 +257,6 @@ main{flex:1;overflow-y:auto;padding:0 0 90px;}
 .pet-readme-content p{margin:0 0 12px;}
 .pet-readme-content ul,
 .pet-readme-content ol{margin:8px 0 14px;padding-left:22px;}
-.pet-readme-content li{margin:5px 0;}
-.pet-readme-content strong{color:var(--text);}
-.pet-readme-content a{color:var(--accent);text-decoration:none;}
-.pet-readme-content a:hover{text-decoration:underline;}
-.pet-readme-content code{
-  background:var(--bg-elev-2);
-  color:var(--text);
-  border:1px solid var(--border);
-  border-radius:6px;
-  padding:2px 5px;
-  font-family:var(--font-mono);
-  font-size:12px;
-}
-.pet-readme-content pre{
-  background:var(--bg-elev-2);
-  border:1px solid var(--border);
-  border-radius:10px;
-  padding:12px;
-  overflow:auto;
-  color:var(--text-dim);
-  font-family:var(--font-mono);
-  font-size:12px;
-  line-height:1.55;
-  margin:10px 0 16px;
-}
-.pet-readme-note{
-  background:var(--accent-soft);
-  border:1px solid rgba(217,164,65,.35);
-  border-radius:10px;
-  padding:11px 12px;
-  margin:10px 0 16px;
-}
 
 
 /* ---- Field rows in entry modal ---- */
@@ -692,7 +660,9 @@ Result → HDFC Regalia outstanding reduced by ₹2,500</div>
 
         <div class="about-card">
           <h3>Sharing / forking PET</h3>
-          <p>This project is free to fork and reuse under the MIT license. Each person's copy keeps its own data in their own browser storage — there is no shared central database. Google Drive sync requires each copy to use its own free Google OAuth Client ID; see the <button type="button" class="filter-link" id="openReadmeBtn" style="background:none;border:0;padding:0;font:inherit;">README</button> for setup steps.</p>
+          <p>This project is free to fork and reuse under the MIT license. Each person's copy keeps its own data in their own browser storage — there is no shared central database.</p>
+          <p><b>Official PET deployment:</b> Google Drive sync is already configured. Users only need to connect their Google account; they do not need to create or enter a Google OAuth Client ID.</p>
+          <p style="margin-bottom:0"><b>For anyone forking or deploying their own copy:</b> the Google OAuth Client ID included in the source code is for the official PET deployment. You must replace it with your own Google OAuth Client ID and configure that client for your deployment. See the <a href="./README.html" style="color:var(--accent);text-decoration:none;">README</a> for setup steps.</p>
         </div>
 
         <div class="about-card">
@@ -769,122 +739,7 @@ const CUR = "₹";
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
 
-function openReadmeOverlay(){
-  const root = document.getElementById("modal-root");
-  const existing = document.getElementById("readmeOverlay");
-  if(existing) existing.remove();
 
-  const el = document.createElement("div");
-  el.className = "overlay";
-  el.id = "readmeOverlay";
-
-  el.innerHTML = `
-    <div class="overlay-head">
-      <button id="readmeClose">‹ Back</button>
-      <div class="overlay-title">PET README</div>
-      <span style="width:52px"></span>
-    </div>
-    <div class="overlay-body">
-      <div class="pet-readme-content">
-
-        <h1>PET — Personal Expense Tracker</h1>
-        <p><strong>Track. Analyze. Manage. Grow.</strong></p>
-        <p>A private, flexible expense tracker for recording expenses, managing accounts, and understanding credit-card spending.</p>
-
-        <h2>What PET does</h2>
-        <p>PET keeps your transactions organized around the thing that matters: <strong>what you spent, where you spent it, which account paid for it, and whether that payment still needs settlement.</strong></p>
-
-        <h2>Core features</h2>
-        <ul>
-          <li>🏠 <strong>Home</strong> — View, search, filter and edit transactions by day, week, month or year.</li>
-          <li>➕ <strong>Fast entry</strong> — Add expenses with category, account/sub-account, amount and notes.</li>
-          <li>💳 <strong>Credit-card tracking</strong> — Separate card spending from card payments and see paid versus pending amounts.</li>
-          <li>📊 <strong>Analysis</strong> — Analyze spending by category, account, merchant and time period.</li>
-          <li>🔎 <strong>Search &amp; filtering</strong> — Find transactions quickly using merchant, note, category or account.</li>
-          <li>📅 <strong>Flexible periods</strong> — Use a calendar date as the anchor and switch between day, week, month and year.</li>
-          <li>📅 <strong>Visual Calendar</strong> — A dedicated monthly calendar shows daily expenses, pending amounts, category markers and clickable daily details.</li>
-          <li>💰 <strong>Account types</strong> — Configure whether an account requires payment/settlement or is a direct-debit account.</li>
-          <li>💾 <strong>Data control</strong> — Transactions are stored locally in the browser using localStorage; JSON and CSV backup/export are available.</li>
-          <li>☁️ <strong>Google Drive sync</strong> — Optional and off by default. Back up your data to your own Drive at any time.</li>
-        </ul>
-
-        <h2>How payment tracking works</h2>
-        <p>A credit-card purchase is an <strong>expense</strong>. Paying the credit card later is a <strong>settlement/transfer</strong>, not another expense. This prevents double-counting.</p>
-        <pre>Expense → HDFC Regalia → ₹2,500 → Pending
-
-Card payment → HDFC Savings → HDFC Regalia → ₹2,500
-
-Result → HDFC Regalia outstanding reduced by ₹2,500</pre>
-
-        <h2>Account types</h2>
-        <ul>
-          <li><strong>Payment / settlement account:</strong> normally used for credit cards where purchases create an amount that must be paid later.</li>
-          <li><strong>Direct account:</strong> normally used for UPI, bank accounts, debit cards, wallets or cash where the transaction is treated as a direct debit.</li>
-          <li>The account behavior is configurable in <strong>Settings → Accounts</strong>.</li>
-        </ul>
-
-        <h2>Analysis views</h2>
-        <ul>
-          <li>Total spending for the selected period.</li>
-          <li>Payment status with pending and settled amounts.</li>
-          <li>Pending amounts grouped by account/sub-account.</li>
-          <li>Category distribution and amounts.</li>
-          <li>Account/sub-account spending with paid and pending amounts where applicable.</li>
-          <li>Top merchants/notes and spending trends.</li>
-          <li>Weeks-in-this-month breakdown, when viewing a month.</li>
-          <li>Clicking a pending account can take you back to Home with the relevant transactions filtered for editing.</li>
-        </ul>
-
-        <h2>Installing PET</h2>
-        <p>When hosted (for example on GitHub Pages), PET installs like a real app — "Add to Home Screen" on Android gives it its own icon and a full-screen launch, and it keeps working completely offline afterward, even if the site later becomes unreachable.</p>
-
-        <h2>Data &amp; privacy</h2>
-        <p>Your transaction data is kept in the browser's local storage on the device/browser where you use it. PET does not require a server or an account to use the core app.</p>
-        <p>Google Drive sync is entirely <strong>optional and off by default</strong>. Nothing is ever sent anywhere unless you explicitly connect it in <strong>Settings → Sync</strong>, and turning it off at any time returns PET to being fully offline.</p>
-        <div class="pet-readme-note"><strong>Important:</strong> browser storage is not a substitute for backups. Use the Data section to export a JSON backup periodically, especially before clearing browser data or changing devices.</div>
-
-        <h2>Sharing / forking PET</h2>
-        <p>This project is free to fork and reuse under the MIT license. Each person's copy keeps its own data in their own browser storage — there is no shared central database. Google Drive sync requires each copy to use its own free Google OAuth Client ID; see the setup section below.</p>
-
-        <h2>Running your own copy</h2>
-        <ol>
-          <li>Fork or download this repository.</li>
-          <li>In your GitHub repo settings, enable <strong>GitHub Pages</strong> for the <strong>main</strong> branch (root folder). GitHub will give you a URL like <code>https://yourname.github.io/reponame/</code>.</li>
-          <li>Open that URL — PET is now live and installable ("Add to Home Screen" on Android/Chrome).</li>
-        </ol>
-
-        <h3>Enabling Google Drive sync (optional)</h3>
-        <p>Google requires every site to have its own registered credential — this is a one-time, free setup:</p>
-        <ol>
-          <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a> and create a new project (any name).</li>
-          <li>Go to <strong>APIs &amp; Services → Library</strong> and enable the <strong>Google Drive API</strong>.</li>
-          <li>Go to <strong>APIs &amp; Services → OAuth consent screen</strong> — choose "External," fill in the basic required fields, and add your own Google account as a test user.</li>
-          <li>Go to <strong>APIs &amp; Services → Credentials → Create Credentials → OAuth client ID</strong>. Choose <strong>Web application</strong>. Under "Authorized JavaScript origins," add your GitHub Pages URL from step 2 above (e.g. <code>https://yourname.github.io</code>).</li>
-          <li>Copy the generated Client ID (it looks like <code>xxxxxxxx.apps.googleusercontent.com</code>).</li>
-          <li>In PET, go to <strong>Settings → Sync</strong>, paste the Client ID, and tap <strong>Connect</strong>.</li>
-        </ol>
-
-        <p>Nothing here is stored anywhere but your own browser and your own Google account.</p>
-
-        <h3>If you want anyone (not just you) to connect Drive without a warning screen</h3>
-        <p>PET only requests the <code>drive.file</code> scope — access limited to files PET itself creates — which Google classifies as <strong>non-sensitive</strong>. That means opening this up to the public only requires a lightweight "brand verification" (app name, logo, support email, a privacy policy page), not the heavier review or paid security audit that broader Drive/Sheets access would trigger. See <strong>OAuth consent screen → Publish App</strong> in Cloud Console once your app details are filled in.</p>
-
-        <h2>Version</h2>
-        <p>Personal Expense Tracker (PET) • Local-first, with optional Google Drive sync</p>
-
-        <h2>License</h2>
-        <p>MIT — see <strong>LICENSE</strong>. You're free to use, modify, and share your own version.</p>
-
-      </div>
-    </div>
-  `;
-
-  root.appendChild(el);
-
-  document.getElementById("readmeClose").addEventListener("click", () => {
-    el.remove();
-  });
-}
 
 
 
@@ -1846,6 +1701,12 @@ const SYNC_KEY = "pet.sync.v1";
 const DRIVE_FILE_NAME = "pet-sync.json";
 const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive.file";
 
+// Google OAuth Client ID for the official PET deployment.
+// If you fork/deploy PET under your own domain, replace this with
+// your own Google OAuth Client ID configured for your deployment.
+// Users of the official PET deployment do not need to enter a Client ID.
+const PET_GOOGLE_CLIENT_ID = "710554381194-beitt2baeios1s1do77evh31f2iignae.apps.googleusercontent.com";
+
 function loadSyncConfig(){
   try{
     const raw = localStorage.getItem(SYNC_KEY);
@@ -1895,9 +1756,8 @@ function initTokenClient(clientId){
 }
 
 function connectGoogleDrive(){
-  if(!syncConfig.clientId){ alert("Enter your Google OAuth Client ID first."); return; }
   loadGisScript().then(()=>{
-    gisTokenClient = initTokenClient(syncConfig.clientId);
+    gisTokenClient = initTokenClient(PET_GOOGLE_CLIENT_ID);
     // Only force the full "choose account → review permissions → Allow" screen
     // the very first time. Once you've granted consent once, Google remembers
     // it — reconnecting afterward should just need a quick account pick.
@@ -2039,24 +1899,12 @@ function buildSyncSection(){
   wrap.innerHTML = `<h3>Google Drive Sync</h3>
     <div style="font-size:12px;color:var(--text-faint);line-height:1.6;margin-bottom:16px;">
       Optional and off by default — PET works fully offline without this. When connected, your complete data
-      (settings + transactions) can back up to a file in your own Google Drive.
+      (settings + transactions) can back up to a file in your own Google Drive. Just connect your Google account;
+      no Client ID or technical setup is required.
     </div>`;
 
-  if(!syncConfig.clientId){
-    const box = document.createElement("div");
-    box.className = "data-row"; box.style.flexDirection = "column"; box.style.alignItems = "stretch";
-    box.innerHTML = `<div class="t" style="margin-bottom:8px">Google OAuth Client ID</div>
-      <input type="text" id="syncClientIdInput" placeholder="xxxxxxxx.apps.googleusercontent.com" style="margin-bottom:10px;">
-      <button type="button" id="syncClientIdSave" class="btn btn-ghost" style="align-self:flex-start;padding:8px 16px;">Save Client ID</button>
-      <div style="font-size:11.5px;color:var(--text-faint);margin-top:10px;line-height:1.5;">One-time setup — see the README for how to create a free Client ID from Google Cloud Console (about 5 minutes).</div>`;
-    wrap.appendChild(box);
-    box.querySelector("#syncClientIdSave").addEventListener("click", ()=>{
-      const v = document.getElementById("syncClientIdInput").value.trim();
-      if(!v){ alert("Paste your Client ID first."); return; }
-      syncConfig.clientId = v; saveSyncConfig(); renderSettingsView();
-    });
-    return wrap;
-  }
+  // The PET OAuth Client ID is built into the official app.
+  // Users only need to tap Connect and authorize their Google account.
 
   const sessionExpired = !driveAccessToken && syncConfig.wasConnected;
   const statusRow = document.createElement("div"); statusRow.className = "data-row";
@@ -2109,16 +1957,6 @@ function buildSyncSection(){
     wrap.appendChild(sheetNote);
   }
 
-  const changeBtn = document.createElement("button");
-  changeBtn.type = "button"; changeBtn.className = "btn btn-ghost";
-  changeBtn.style.cssText = "padding:8px 14px;font-size:12.5px;margin-top:10px;";
-  changeBtn.textContent = "Change Client ID";
-  changeBtn.addEventListener("click", ()=>{
-    if(!confirm("Change the Google Client ID? You'll need to reconnect afterward.")) return;
-    syncConfig.clientId = ""; syncConfig.wasConnected = false; driveAccessToken = null;
-    saveSyncConfig(); renderSettingsView();
-  });
-  wrap.appendChild(changeBtn);
   return wrap;
 }
 
@@ -2727,11 +2565,6 @@ if (sharePetBtn) {
   });
 })();
 
-
-const openReadmeBtn = document.getElementById("openReadmeBtn");
-if(openReadmeBtn){
-  openReadmeBtn.addEventListener("click", openReadmeOverlay);
-}
 
 </script>
 </body>
