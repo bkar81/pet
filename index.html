@@ -643,7 +643,7 @@ Result → HDFC Regalia outstanding reduced by ₹2,500</div>
           <h3>Sharing / forking PET</h3>
           <p>This project is free to fork and reuse under the MIT license. Each person's copy keeps its own data in their own browser storage — there is no shared central database.</p>
           <p><b>Official PET deployment:</b> Google Drive sync is already configured. Users only need to connect their Google account; they do not need to create or enter a Google OAuth Client ID.</p>
-          <p style="margin-bottom:0"><b>For anyone forking or deploying their own copy:</b> the Google OAuth Client ID included in the source code is for the official PET deployment. You must replace it with your own Google OAuth Client ID and configure that client for your deployment. See the <a href="https://github.com/bkar81/pet/blob/main/README.md" target="_blank" rel="noopener noreferrer" style="color:#F4C95D;text-decoration:none;font-weight:600;">README</a> for setup steps.</p>
+          <p style="margin-bottom:0"><b>For anyone forking or deploying their own copy:</b> the Google OAuth Client ID included in the source code is for the official PET deployment. You must replace it with your own Google OAuth Client ID and configure that client for your deployment. See the <a href="./README.html" style="color:var(--accent);text-decoration:none;">README</a> for setup steps.</p>
         </div>
 
         <div class="about-card">
@@ -984,123 +984,61 @@ function applyCustomRange(){
   if(!s || !e) return;
   let sd=new Date(s+"T00:00:00"), ed=new Date(e+"T23:59:59.999");
   if(ed < sd){ const t=sd; sd=new Date(s+"T23:59:59.999"); ed=new Date(e+"T00:00:00"); if(ed < sd){ 
-/* PET custom dialogs — replaces native alert/confirm/prompt so browser
-   titles such as "bkar81.github.io says" are never shown. */
+/* PET custom dialogs: replaces native browser alert/confirm/prompt UI. */
 (function(){
-  const style = document.createElement("style");
-  style.textContent = `
-    #petNoticeOverlay,#petDecisionOverlay{
-      position:fixed;inset:0;display:none;align-items:center;justify-content:center;
-      z-index:99999;background:rgba(0,0,0,.55);padding:20px;
-    }
-    #petNoticeBox,#petDecisionBox{
-      width:min(440px,100%);background:var(--surface,#191919);
-      color:var(--text,#f3f3f3);border:1px solid var(--border,#333);
-      border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.45);padding:20px;
-    }
-    #petNoticeTitle,#petDecisionTitle{font-size:17px;font-weight:700;margin:0 0 10px;}
-    #petNoticeMessage,#petDecisionMessage{
-      font-size:14px;line-height:1.55;color:var(--text-dim,#c7c7c7);white-space:pre-wrap;
-    }
-    #petNoticeActions,#petDecisionActions{
-      display:flex;justify-content:flex-end;gap:9px;margin-top:18px;
-    }
-    #petNoticeOk,#petDecisionOk,#petDecisionCancel{
-      border:0;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:700;
-    }
-    #petNoticeOk,#petDecisionOk{background:var(--accent,#d9a441);color:#111;}
-    #petDecisionCancel{
-      background:var(--surface-2,#202020);color:var(--text-dim,#c7c7c7);
-      border:1px solid var(--border,#444);
-    }
-    #petDecisionInput{
-      width:100%;margin-top:14px;padding:10px 12px;border-radius:10px;
-      border:1px solid var(--border,#444);background:var(--surface-2,#202020);
-      color:var(--text,#f3f3f3);font:inherit;outline:none;
-    }
-    #petDecisionInput:focus{border-color:var(--accent,#d9a441);}
-  `;
-  document.head.appendChild(style);
+  let overlay=null, titleEl, messageEl, inputEl, cancelBtn, okBtn, resolver=null, mode=null;
 
-  function makeNotice(){
-    const overlay=document.createElement("div");
-    overlay.id="petNoticeOverlay";
-    overlay.innerHTML=`<div id="petNoticeBox" role="dialog" aria-modal="true">
-      <div id="petNoticeTitle"></div><div id="petNoticeMessage"></div>
-      <div id="petNoticeActions"><button id="petNoticeOk" type="button">OK</button></div>
-    </div>`;
+  function ensureDialog(){
+    if(overlay) return;
+    overlay=document.createElement("div");
+    overlay.id="petDialogOverlay";
+    overlay.style.cssText="position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:99999;background:rgba(0,0,0,.55);padding:20px;";
+    overlay.innerHTML=`
+      <div id="petDialogBox" role="dialog" aria-modal="true" style="width:min(440px,100%);background:var(--surface,#191919);color:var(--text,#f3f3f3);border:1px solid var(--border,#333);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.45);padding:20px;">
+        <div id="petDialogTitle" style="font-size:17px;font-weight:700;margin:0 0 10px;"></div>
+        <div id="petDialogMessage" style="font-size:14px;line-height:1.55;color:var(--text-dim,#c7c7c7);white-space:pre-wrap;"></div>
+        <input id="petDialogInput" type="text" autocomplete="off" style="display:none;width:100%;box-sizing:border-box;margin-top:14px;padding:10px 12px;border-radius:10px;border:1px solid var(--border,#444);background:var(--surface-2,#202020);color:var(--text,#f3f3f3);font:inherit;outline:none;">
+        <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:18px;">
+          <button id="petDialogCancel" type="button" style="display:none;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:700;background:var(--surface-2,#202020);color:var(--text-dim,#c7c7c7);border:1px solid var(--border,#444);">Cancel</button>
+          <button id="petDialogOk" type="button" style="border:0;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:700;background:var(--accent,#d9a441);color:#111;">OK</button>
+        </div>
+      </div>`;
     document.body.appendChild(overlay);
-    return overlay;
+    titleEl=overlay.querySelector("#petDialogTitle"); messageEl=overlay.querySelector("#petDialogMessage");
+    inputEl=overlay.querySelector("#petDialogInput"); cancelBtn=overlay.querySelector("#petDialogCancel"); okBtn=overlay.querySelector("#petDialogOk");
+    okBtn.onclick=()=>finish(true); cancelBtn.onclick=()=>finish(false);
+    overlay.onclick=e=>{if(e.target===overlay) finish(false);};
+    inputEl.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();finish(true);} if(e.key==="Escape"){e.preventDefault();finish(false);}};
   }
-  let noticeOverlay=null;
+  function finish(value){
+    if(!resolver) return;
+    const r=resolver; resolver=null;
+    overlay.style.display="none";
+    const v=mode==="prompt" ? inputEl.value : value;
+    mode=null;
+    r(v);
+  }
   window.showNotice=function(title,message){
-    if(!noticeOverlay) noticeOverlay=makeNotice();
-    const titleEl=noticeOverlay.querySelector("#petNoticeTitle");
-    const msgEl=noticeOverlay.querySelector("#petNoticeMessage");
-    const ok=noticeOverlay.querySelector("#petNoticeOk");
-    titleEl.textContent=title; msgEl.textContent=message;
-    noticeOverlay.style.display="flex"; ok.focus();
-    const close=()=>{noticeOverlay.style.display="none";};
-    ok.onclick=close;
-    noticeOverlay.onclick=e=>{if(e.target===noticeOverlay)close();};
+    ensureDialog(); mode="notice"; resolver=null;
+    titleEl.textContent=title; messageEl.textContent=message; inputEl.style.display="none"; cancelBtn.style.display="none"; okBtn.style.display="";
+    overlay.style.display="flex"; okBtn.focus();
   };
-
-  let decisionOverlay=null, mode=null, onOk=null, onCancel=null;
-  function makeDecision(){
-    const overlay=document.createElement("div");
-    overlay.id="petDecisionOverlay";
-    overlay.innerHTML=`<div id="petDecisionBox" role="dialog" aria-modal="true">
-      <div id="petDecisionTitle"></div><div id="petDecisionMessage"></div>
-      <input id="petDecisionInput" type="text" autocomplete="off" style="display:none;">
-      <div id="petDecisionActions">
-        <button id="petDecisionCancel" type="button">Cancel</button>
-        <button id="petDecisionOk" type="button">OK</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-    return overlay;
-  }
-  function closeDecision(okPressed){
-    if(!decisionOverlay) return;
-    const ok=onOk, cancel=onCancel, currentMode=mode, value=decisionOverlay.querySelector("#petDecisionInput").value;
-    decisionOverlay.style.display="none";
-    onOk=onCancel=null; mode=null;
-    if(okPressed && ok) ok(currentMode==="prompt"?value:true);
-    else if(!okPressed && cancel) cancel();
-  }
-  window.showConfirm=function(title,message,okCallback,cancelCallback){
-    if(!decisionOverlay) decisionOverlay=makeDecision();
-    mode="confirm"; onOk=okCallback; onCancel=cancelCallback||null;
-    decisionOverlay.querySelector("#petDecisionTitle").textContent=title;
-    decisionOverlay.querySelector("#petDecisionMessage").textContent=message;
-    decisionOverlay.querySelector("#petDecisionInput").style.display="none";
-    decisionOverlay.style.display="flex";
-    decisionOverlay.querySelector("#petDecisionOk").focus();
+  window.petConfirm=function(title,message){
+    ensureDialog();
+    return new Promise(resolve=>{
+      mode="confirm"; resolver=resolve; titleEl.textContent=title; messageEl.textContent=message;
+      inputEl.style.display="none"; cancelBtn.style.display=""; okBtn.style.display="";
+      overlay.style.display="flex"; okBtn.focus();
+    });
   };
-  window.showPrompt=function(title,message,defaultValue,okCallback){
-    if(!decisionOverlay) decisionOverlay=makeDecision();
-    mode="prompt"; onOk=okCallback; onCancel=null;
-    decisionOverlay.querySelector("#petDecisionTitle").textContent=title;
-    decisionOverlay.querySelector("#petDecisionMessage").textContent=message||"";
-    const input=decisionOverlay.querySelector("#petDecisionInput");
-    input.value=defaultValue||""; input.style.display="block";
-    decisionOverlay.style.display="flex";
-    setTimeout(()=>{input.focus();input.select();},0);
+  window.petPrompt=function(title,message,defaultValue=""){
+    ensureDialog();
+    return new Promise(resolve=>{
+      mode="prompt"; resolver=resolve; titleEl.textContent=title; messageEl.textContent=message||"";
+      inputEl.value=defaultValue||""; inputEl.style.display="block"; cancelBtn.style.display=""; okBtn.style.display="";
+      overlay.style.display="flex"; setTimeout(()=>{inputEl.focus();inputEl.select();},0);
+    });
   };
-
-  document.addEventListener("click",e=>{
-    if(!decisionOverlay || decisionOverlay.style.display==="none") return;
-    if(e.target===decisionOverlay) closeDecision(false);
-    else if(e.target.id==="petDecisionCancel") closeDecision(false);
-    else if(e.target.id==="petDecisionOk") closeDecision(true);
-  });
-  document.addEventListener("keydown",e=>{
-    if(!decisionOverlay || decisionOverlay.style.display==="none") return;
-    if(e.key==="Escape"){e.preventDefault();closeDecision(false);}
-    else if(e.key==="Enter" && mode==="prompt" && document.activeElement?.id==="petDecisionInput"){
-      e.preventDefault();closeDecision(true);
-    }
-  });
 })();
 
 showNotice("Date Range", "End date cannot be before start date."); renderEntryCustomControls(); return; } }
@@ -1125,18 +1063,17 @@ function filterTransactions(txns, query){
   });
 }
 
-function markSelectedPendingPaid(){
+async function markSelectedPendingPaid(){
   const ids = [...pendingSelected];
   if(!ids.length) return;
-  showConfirm("Mark as Paid", `Mark ${ids.length} selected transaction${ids.length===1?"":"s"} as Paid?`, ()=>{
-    state.transactions.forEach(t=>{
-      if(pendingSelected.has(t.id) && accountNeedsPayment(t.accId)) t.paid = true;
-    });
-    pendingSelected.clear();
-    save();
-    renderEntryView();
-    renderAnalysisView();
+  if(!await petConfirm("Mark as Paid", `Mark ${ids.length} selected transaction${ids.length===1?"":"s"} as Paid?`)) return;
+  state.transactions.forEach(t=>{
+    if(pendingSelected.has(t.id) && accountNeedsPayment(t.accId)) t.paid = true;
   });
+  pendingSelected.clear();
+  save();
+  renderEntryView();
+  renderAnalysisView();
 }
 function buildPendingBulkBar(txns){
   const bar=document.createElement("div");
@@ -1357,11 +1294,11 @@ function openEntryModal(txnId){
   document.getElementById("fCatBtn").addEventListener("click", ()=> openPicker("category"));
   document.getElementById("fAccBtn").addEventListener("click", ()=> openPicker("account"));
   const delBtn = document.getElementById("fDelete");
-  if(delBtn) delBtn.addEventListener("click", ()=>{
-    showConfirm("Delete Expense", "Delete this expense?", ()=>{
+  if(delBtn) delBtn.addEventListener("click", async ()=>{
+    if(await petConfirm("Delete Expense", "Delete this expense?")){
       state.transactions = state.transactions.filter(t=>t.id!==draft.id);
       save(); closeEntryModal(); refreshCurrentView();
-    });
+    }
   });
   document.getElementById("paidSwitch").addEventListener("click", ()=>{
     draft.paid = !draft.paid; refreshPaidRow();
@@ -1537,13 +1474,12 @@ function renderSettingsView(){
   const addTop = document.createElement("div");
   addTop.className = "add-row-top";
   addTop.textContent = "+ Add " + (isCat? "category" : "account type");
-  addTop.addEventListener("click", ()=>{
+  addTop.addEventListener("click", async ()=>{
     if(isCat){ openCategoryForm(null); return; }
-    showPrompt("New Account Type", "Enter account type name", "", name=>{
-      if(!name || !name.trim()) return;
-      list.push({id:uid(), name:name.trim(), order:nextOrder(list), subs:[], settlement:"direct"});
-      save(); renderSettingsView();
-    });
+    const name = await petPrompt("New Account Type", "Enter account type name");
+    if(!name || !name.trim()) return;
+    list.push({id:uid(), name:name.trim(), order:nextOrder(list), subs:[], settlement:"direct"});
+    save(); renderSettingsView();
   });
   addTop.style.marginBottom = "14px";
   section.appendChild(addTop);
@@ -1583,24 +1519,18 @@ function buildGroupCard(top, isCat, list, idx, count){
   });
   head.querySelector('[data-a="up"]').addEventListener("click", ()=> moveItem(list, top, -1));
   head.querySelector('[data-a="down"]').addEventListener("click", ()=> moveItem(list, top, 1));
-  head.querySelector('[data-a="edit"]').addEventListener("click", ()=>{
+  head.querySelector('[data-a="edit"]').addEventListener("click", async ()=>{
     if(isCat){ openCategoryForm(top); return; }
-    showPrompt("Rename", "Enter a new name", top.name, name=>{
-      if(name && name.trim()){ top.name = name.trim(); save(); renderSettingsView(); }
-    });
+    const name = await petPrompt("Rename Account Type", "Enter a new name", top.name);
+    if(name && name.trim()){ top.name = name.trim(); save(); renderSettingsView(); }
   });
-  head.querySelector('[data-a="del"]').addEventListener("click", ()=>{
+  head.querySelector('[data-a="del"]').addEventListener("click", async ()=>{
     const inUse = state.transactions.some(t=> isCat? t.catId===top.id : t.accId===top.id);
-    const deleteTop = ()=>{
-      const arr = isCat? state.categories : state.accounts;
-      const i = arr.findIndex(x=>x.id===top.id);
-      arr.splice(i,1); save(); renderSettingsView();
-    };
-    if(inUse){
-      showConfirm("Delete Category / Account", "Some expenses use this. Delete anyway? (they'll keep the old reference)", deleteTop);
-    }else{
-      showConfirm("Delete Category / Account", `Delete "${top.name}"?`, deleteTop);
-    }
+    if(inUse && !await petConfirm("Delete Category / Account", "Some expenses use this. Delete anyway? (they'll keep the old reference)")) return;
+    if(!inUse && !await petConfirm("Delete Category / Account", `Delete "${top.name}"?`)) return;
+    const arr = isCat? state.categories : state.accounts;
+    const i = arr.findIndex(x=>x.id===top.id);
+    arr.splice(i,1); save(); renderSettingsView();
   });
   card.appendChild(head);
   if(!isCat){
@@ -1623,28 +1553,25 @@ function buildGroupCard(top, isCat, list, idx, count){
       <button class="icon-btn" data-a="del">🗑</button>`;
     row.querySelector('[data-a="up"]').addEventListener("click", ()=> moveItem(top.subs, sub, -1));
     row.querySelector('[data-a="down"]').addEventListener("click", ()=> moveItem(top.subs, sub, 1));
-    row.querySelector('[data-a="edit"]').addEventListener("click", ()=>{
-      showPrompt("Rename", "Enter a new name", sub.name, name=>{
-        if(name && name.trim()){ sub.name = name.trim(); save(); renderSettingsView(); }
-      });
+    row.querySelector('[data-a="edit"]').addEventListener("click", async ()=>{
+      const name = await petPrompt("Rename", "Enter a new name", sub.name);
+      if(name && name.trim()){ sub.name = name.trim(); save(); renderSettingsView(); }
     });
-    row.querySelector('[data-a="del"]').addEventListener("click", ()=>{
-      showConfirm("Delete", `Delete "${sub.name}"?`, ()=>{
-        const i = top.subs.findIndex(x=>x.id===sub.id);
-        top.subs.splice(i,1); save(); renderSettingsView();
-      });
+    row.querySelector('[data-a="del"]').addEventListener("click", async ()=>{
+      if(!await petConfirm("Delete", `Delete "${sub.name}"?`)) return;
+      const i = top.subs.findIndex(x=>x.id===sub.id);
+      top.subs.splice(i,1); save(); renderSettingsView();
     });
     subList.appendChild(row);
   });
   const addRow = document.createElement("div");
   addRow.className = "add-row";
   addRow.textContent = "+ Add " + (isCat?"subcategory":"account");
-  addRow.addEventListener("click", ()=>{
-    showPrompt("Add " + (isCat?"Subcategory":"Account"), "Enter a name", "", name=>{
-      if(!name || !name.trim()) return;
-      top.subs.push({id:uid(), name:name.trim(), order:nextOrder(top.subs)});
-      save(); renderSettingsView();
-    });
+  addRow.addEventListener("click", async ()=>{
+    const name = await petPrompt("Add " + (isCat?"Subcategory":"Account"), "Enter a name");
+    if(!name || !name.trim()) return;
+    top.subs.push({id:uid(), name:name.trim(), order:nextOrder(top.subs)});
+    save(); renderSettingsView();
   });
   subList.appendChild(addRow);
   card.appendChild(subList);
@@ -1770,12 +1697,9 @@ function backupSettings(){saveJsonFile(settingsSnapshot(),"pet-settings-"+dstamp
 function backupData(){saveJsonFile(dataSnapshot(),"pet-data-"+dstamp()+".json");}
 function backupComplete(){saveJsonFile(completeSnapshot(),"pet-complete-backup-"+dstamp()+".json");}
 function chooseJsonFile(callback){const input=document.createElement("input");input.type="file";input.accept="application/json,.json";input.addEventListener("change",()=>{const file=input.files&&input.files[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{callback(JSON.parse(reader.result));}catch(e){showNotice("Backup & Restore", "Couldn't read that file as valid PET JSON.");}};reader.readAsText(file);});input.click();}
-function restoreSettings(){chooseJsonFile(data=>{if(data.backupType!=="PET_SETTINGS"||!Array.isArray(data.categories)||!Array.isArray(data.accounts)){showNotice("Restore Settings", "That file is not a PET settings backup.");return;}showConfirm("Restore Settings", "Restore settings only? Current categories and accounts will be replaced. Your transactions will remain.", ()=>{
-state.categories=data.categories;state.accounts=data.accounts;save();renderSettingsView();refreshCurrentView();showNotice("Restore Settings", "Settings restored. Your transaction data was kept.");});});}
-function restoreData(){chooseJsonFile(data=>{if(data.backupType!=="PET_DATA"||!Array.isArray(data.transactions)){showNotice("Restore Data", "That file is not a PET data backup.");return;}showConfirm("Restore Data", "Restore data only? Current transactions will be replaced. Your categories and accounts will remain.", ()=>{
-state.transactions=data.transactions;save();renderSettingsView();refreshCurrentView();showNotice("Restore Data", "Transaction data restored. Your settings were kept.");});});}
-function restoreComplete(){chooseJsonFile(data=>{if(data.backupType!=="PET_COMPLETE"||!Array.isArray(data.categories)||!Array.isArray(data.accounts)||!Array.isArray(data.transactions)){showNotice("Restore Complete Backup", "That file is not a PET complete backup.");return;}showConfirm("Restore Complete Backup", "Restore complete backup? Current settings and transactions will be replaced.", ()=>{
-state={categories:data.categories,accounts:data.accounts,transactions:data.transactions};save();renderSettingsView();refreshCurrentView();showNotice("Restore Complete Backup", "Complete PET backup restored.");});});}
+function restoreSettings(){chooseJsonFile(async data=>{if(data.backupType!=="PET_SETTINGS"||!Array.isArray(data.categories)||!Array.isArray(data.accounts)){showNotice("Restore Settings", "That file is not a PET settings backup.");return;}if(!await petConfirm("Restore Settings", "Restore settings only? Current categories and accounts will be replaced. Your transactions will remain."))return;state.categories=data.categories;state.accounts=data.accounts;save();renderSettingsView();refreshCurrentView();showNotice("Restore Settings", "Settings restored. Your transaction data was kept.");});}
+function restoreData(){chooseJsonFile(async data=>{if(data.backupType!=="PET_DATA"||!Array.isArray(data.transactions)){showNotice("Restore Data", "That file is not a PET data backup.");return;}if(!await petConfirm("Restore Data", "Restore data only? Current transactions will be replaced. Your categories and accounts will remain."))return;state.transactions=data.transactions;save();renderSettingsView();refreshCurrentView();showNotice("Restore Data", "Transaction data restored. Your settings were kept.");});}
+function restoreComplete(){chooseJsonFile(async data=>{if(data.backupType!=="PET_COMPLETE"||!Array.isArray(data.categories)||!Array.isArray(data.accounts)||!Array.isArray(data.transactions)){showNotice("Restore Complete Backup", "That file is not a PET complete backup.");return;}if(!await petConfirm("Restore Complete Backup", "Restore complete backup? Current settings and transactions will be replaced."))return;state={categories:data.categories,accounts:data.accounts,transactions:data.transactions};save();renderSettingsView();refreshCurrentView();showNotice("Restore Complete Backup", "Complete PET backup restored.");});}
 
 function exportCSV(){
   const rows = [["Date","Category","Subcategory","Account Type","Account","Amount","Paid","Note"]];
@@ -1883,15 +1807,14 @@ function connectGoogleDrive(){
   });
 }
 
-function disconnectGoogleDrive(){
-  showConfirm("Google Drive Sync", "Disconnect Google Drive? Auto-sync will stop. Nothing on this device is affected.", ()=>{
+async function disconnectGoogleDrive(){
+  if(!await petConfirm("Google Drive Sync", "Disconnect Google Drive? Auto-sync will stop. Nothing on this device is affected.")) return;
   if(driveAccessToken && ensureGisLoaded()) google.accounts.oauth2.revoke(driveAccessToken, ()=>{});
   driveAccessToken = null;
   syncConfig.autoSync = false;
   syncConfig.wasConnected = false;
   saveSyncConfig();
   renderSettingsView();
-  });
 }
 
 function scheduleAutoSync(){
@@ -1946,13 +1869,15 @@ async function driveHasNewerRemote(){
   return {conflict: remoteTime > knownTime + 5000, existing}; // small buffer for clock/latency jitter
 }
 
-async function driveSyncNow(silent=false, forceOverwrite=false){
+async function driveSyncNow(silent, forceOverwrite){
   if(!driveAccessToken){ if(!silent) showNotice("Google Drive Sync", "Connect Google Drive first."); return; }
   try{
     if(!forceOverwrite){
       const check = await driveHasNewerRemote();
       if(check.conflict){
         if(silent){
+          // Never silently overwrite in the background — just flag it and
+          // let the user decide next time they open Settings → Sync.
           syncConfig.conflictPending = true;
           saveSyncConfig();
           renderSettingsView();
@@ -1960,17 +1885,17 @@ async function driveSyncNow(silent=false, forceOverwrite=false){
         }
         const when = check.existing && check.existing.modifiedTime
           ? new Date(check.existing.modifiedTime).toLocaleString() : "another device";
-        showConfirm("Google Drive Sync Conflict",
-          `Google Drive has a newer backup from ${when} that this device hasn't loaded yet — likely from another device.\n\nRestore that backup now?`,
-          async ()=>{ await driveRestoreNow(); },
-          ()=>{
-            showConfirm("Google Drive Sync Conflict",
-              "Push this device's data to Drive anyway? This will overwrite that newer backup.",
-              ()=>{ driveSyncNow(false, true); }
-            );
-          }
+        const wantsRestore = await petConfirm(
+          "Google Drive Sync Conflict",
+          `Google Drive has a newer backup from ${when} that this device hasn't loaded yet — likely from another device.\n\n`+
+          `Restore that backup now?`
         );
-        return;
+        if(wantsRestore){ await driveRestoreNow(); return; }
+        const wantsOverwrite = await petConfirm(
+          "Google Drive Sync Conflict",
+          "Push this device's data to Drive anyway? This will overwrite that newer backup."
+        );
+        if(!wantsOverwrite) return;
       }
     }
     const existing = await driveFindFile();
@@ -2000,7 +1925,7 @@ async function driveRestoreNow(){
       showNotice("Google Drive Restore", "The Drive backup doesn't look like a valid PET backup."); return;
     }
     const when = data.exportedAt ? new Date(data.exportedAt).toLocaleString() : "an earlier sync";
-    showConfirm("Google Drive Restore", `Replace this device's data with the Drive backup from ${when}? This cannot be undone.`, ()=>{
+    if(!await petConfirm("Google Drive Restore", `Replace this device's data with the Drive backup from ${when}? This cannot be undone.`)) return;
     state = {categories: data.categories, accounts: data.accounts, transactions: data.transactions};
     save();
     syncConfig.driveFileId = existing.id;
@@ -2009,7 +1934,6 @@ async function driveRestoreNow(){
     saveSyncConfig();
     renderSettingsView(); refreshCurrentView();
     showNotice("Google Drive Restore", "Restored from Google Drive.");
-    });
   }catch(e){ console.error(e); showNotice("Google Drive Restore", "Couldn't restore from Drive. Check your connection and try again."); }
 }
 
@@ -2085,13 +2009,11 @@ function buildSyncSection(){
 // the app. Reconnecting always happens from an explicit tap in Settings →
 // Sync instead — never automatically.
 
-function resetAll(){
-  showConfirm("Reset All Data", "This erases ALL expenses, categories and accounts on this device. Continue?", ()=>{
-    showConfirm("Reset All Data", "Really sure? This can't be undone.", ()=>{
-      save(defaultState());
-      renderSettingsView(); refreshCurrentView();
-    });
-  });
+async function resetAll(){
+  if(!await petConfirm("Reset All Data", "This erases ALL expenses, categories and accounts on this device. Continue?")) return;
+  if(!await petConfirm("Reset All Data", "Really sure? This can't be undone.")) return;
+  save(defaultState());
+  renderSettingsView(); refreshCurrentView();
 }
 
 /* ============================= ANALYSIS VIEW ============================= */
@@ -2549,11 +2471,10 @@ if (sharePetBtn) {
         await navigator.clipboard.writeText(shareData.url);
         showNotice("Share PET", "PET app link copied to clipboard.");
       } else {
-        showPrompt("Share PET", "Copy the PET app link:", shareData.url, value=>{
-          if(value && navigator.clipboard && window.isSecureContext){
-            navigator.clipboard.writeText(value);
-          }
-        });
+        const copiedUrl = await petPrompt("Share PET", "Copy the PET app link:", shareData.url);
+        if(copiedUrl && navigator.clipboard && window.isSecureContext){
+          await navigator.clipboard.writeText(copiedUrl);
+        }
       }
     } catch (error) {
       if (!error || error.name !== "AbortError") console.error("Unable to share PET:", error);
