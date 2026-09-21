@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#111111">
+<title>PET — README</title>
+<style>
+:root{--bg:#111;--surface:#191919;--surface2:#202020;--text:#f3f3f3;--dim:#c7c7c7;--faint:#999;--accent:#d9a441;--border:#333;--accent-soft:rgba(217,164,65,.12)}
+*{box-sizing:border-box} html,body{margin:0;padding:0;background:var(--bg);color:var(--text)}
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.65;padding:18px}
+.page{width:min(900px,100%);margin:auto;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.header{padding:22px 20px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.header h1{margin:0 0 4px;font-size:24px}.header p{margin:0;color:var(--faint);font-size:14px}
+.content{padding:20px}h1,h2,h3,h4,h5,h6{line-height:1.3;margin:1.4em 0 .65em}
+h1{font-size:25px}h2{font-size:21px;border-bottom:1px solid var(--border);padding-bottom:7px}h3{font-size:18px}
+p{margin:0 0 14px;color:var(--dim)}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+ul,ol{color:var(--dim);padding-left:25px}li{margin:5px 0}
+code{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 5px;font-size:.92em}
+pre{background:#0b0b0b;border:1px solid var(--border);border-radius:10px;padding:13px;overflow:auto;color:#ddd;font-size:13px;line-height:1.55}
+blockquote{margin:14px 0;padding:10px 14px;border-left:3px solid var(--accent);background:var(--accent-soft);color:var(--dim)}
+hr{border:0;border-top:1px solid var(--border);margin:22px 0}
+</style>
+</head>
+<body><div class="page">
+<div class="header"><h1>Personal Expense Tracker (PET)</h1><p>README</p></div>
+<main class="content">
+<h1>PET — Personal Expense Tracker</h1>
+<p><strong>Track. Analyze. Manage. Grow.</strong></p>
+<p>A private, flexible expense tracker for recording expenses, managing accounts, and understanding credit-card spending.</p>
+<h2>What PET does</h2>
+<p>PET keeps your transactions organized around the thing that matters: <strong>what you spent, where you spent it, which account paid for it, and whether that payment still needs settlement.</strong></p>
+<h2>Core features</h2>
+<ul>
+<li>🏠 <strong>Home</strong> — View, search, filter and edit transactions by day, week, month or year.</li>
+<li>➕ <strong>Fast entry</strong> — Add expenses with category, account/sub-account, amount and notes.</li>
+<li>💳 <strong>Credit-card tracking</strong> — Separate card spending from card payments and see paid versus pending amounts.</li>
+<li>📊 <strong>Analysis</strong> — Analyze spending by category, account, merchant and time period.</li>
+<li>🔎 <strong>Search &amp; filtering</strong> — Find transactions quickly using merchant, note, category or account.</li>
+<li>📅 <strong>Flexible periods</strong> — Use a calendar date as the anchor and switch between day, week, month and year.</li>
+<li>📅 <strong>Visual Calendar</strong> — A dedicated monthly calendar shows daily expenses, pending amounts, category markers and clickable daily details.</li>
+<li>💰 <strong>Account types</strong> — Configure whether an account requires payment/settlement or is a direct-debit account.</li>
+<li>💾 <strong>Data control</strong> — Transactions are stored locally in the browser using localStorage; JSON and CSV backup/export are available.</li>
+<li>☁️ <strong>Google Drive sync</strong> — Optional and off by default. Back up your data to your own Drive at any time.</li>
+</ul>
+<h2>How payment tracking works</h2>
+<p>A credit-card purchase is an <strong>expense</strong>. Paying the credit card later is a <strong>settlement/transfer</strong>, not another expense. This prevents double-counting.</p>
+<pre><code>Expense → HDFC Regalia → ₹2,500 → Pending
+
+Card payment → HDFC Savings → HDFC Regalia → ₹2,500
+
+Result → HDFC Regalia outstanding reduced by ₹2,500</code></pre>
+<h2>Account types</h2>
+<ul>
+<li><strong>Payment / settlement account:</strong> normally used for credit cards where purchases create an amount that must be paid later.</li>
+<li><strong>Direct account:</strong> normally used for UPI, bank accounts, debit cards, wallets or cash where the transaction is treated as a direct debit.</li>
+<li>The account behavior is configurable in <strong>Settings → Accounts</strong>.</li>
+</ul>
+<h2>Analysis views</h2>
+<ul>
+<li>Total spending for the selected period.</li>
+<li>Payment status with pending and settled amounts.</li>
+<li>Pending amounts grouped by account/sub-account.</li>
+<li>Category distribution and amounts.</li>
+<li>Account/sub-account spending with paid and pending amounts where applicable.</li>
+<li>Top merchants/notes and spending trends.</li>
+<li>Weeks-in-this-month breakdown, when viewing a month.</li>
+<li>Clicking a pending account can take you back to Home with the relevant transactions filtered for editing.</li>
+</ul>
+<h2>Installing PET</h2>
+<p>When hosted (for example on GitHub Pages), PET installs like a real app — "Add to Home Screen" on Android gives it its own icon and a full-screen launch, and it keeps working completely offline afterward, even if the site later becomes unreachable.</p>
+<h2>Data &amp; privacy</h2>
+<p>Your transaction data is kept in the browser's local storage on the device/browser where you use it. PET does not require a server or an account to use the core app.</p>
+<p>Google Drive sync is entirely <strong>optional and off by default</strong>. Nothing is ever sent anywhere unless you explicitly connect it in <strong>Settings → Sync</strong>, and turning it off at any time returns PET to being fully offline.</p>
+<p><strong>Important:</strong> browser storage is not a substitute for backups. Use the Data section to export a JSON backup periodically, especially before clearing browser data or changing devices.</p>
+<h2>Sharing / forking PET</h2>
+<p>This project is free to fork and reuse under the MIT license. Each person's copy keeps its own data in their own browser storage — there is no shared central database.</p>
+<p><strong>Official PET deployment:</strong> Google Drive sync is already configured. Users only need to go to <strong>Settings → Sync → Connect Google Drive</strong>, choose their Google account, and authorize PET. They do not need to create or enter a Google OAuth Client ID.</p>
+<p><strong>Important for anyone forking or deploying their own copy:</strong> the Google OAuth Client ID included in the source code is for the official PET deployment. <strong>You must replace that Client ID with your own Google OAuth Client ID before deploying your copy</strong>, and configure your OAuth client for your own deployment URL/domain.</p>
+<h3>Enabling Google Drive sync (optional)</h3>
+<p><strong>If you are using the official PET deployment:</strong> no Google Cloud setup is required. Go to <strong>Settings → Sync</strong>, tap <strong>Connect Google Drive</strong>, choose your Google account, and authorize PET.</p>
+<p><strong>If you are forking or deploying your own copy:</strong> you must use your own Google OAuth Client ID. Do not use the Client ID included for the official PET deployment.</p>
+<p>One-time setup for your own deployment:</p>
+<ol>
+<li>Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a> and create a project (or use an existing one).</li>
+<li>Enable the <strong>Google Drive API</strong>.</li>
+<li>Configure the <strong>OAuth consent screen</strong> for your application.</li>
+<li>Create an <strong>OAuth client ID</strong> for a <strong>Web application</strong>.</li>
+<li>Configure the OAuth client for the URL/origin where your own PET copy will be hosted.</li>
+<li>Replace the <code>PET<em>GOOGLE</em>CLIENT_ID</code> value in <code>index.html</code> with your own Client ID.</li>
+<li>Deploy your copy and test <strong>Settings → Sync → Connect Google Drive</strong>.</li>
+</ol>
+<p>The official PET Client ID is intended only for the official PET deployment. Your own deployment should use credentials configured for your own URL/origin.</p>
+<p>Nothing here is stored anywhere but your own browser and your own Google account.</p>
+<h2>Running your own copy</h2>
+<ol>
+<li>Fork or download this repository.</li>
+<li>In your GitHub repo settings, enable <strong>GitHub Pages</strong> for the <code>main</code> branch (root folder). GitHub will give you a URL like <code>https://yourname.github.io/reponame/</code>.</li>
+<li>Open that URL — PET is now live and installable ("Add to Home Screen" on Android/Chrome).</li>
+</ol>
+<h3>Google Drive sync in the official PET app</h3>
+<p>Google Drive sync is optional and off by default. The official PET app already contains its Google OAuth configuration, so normal users do not need to create a Google Cloud project, enable an API, create credentials, or enter a Client ID.</p>
+<ol>
+<li>Open <strong>Settings → Sync</strong>.</li>
+<li>Tap <strong>Connect</strong>.</li>
+<li>Choose your Google account and approve PET's requested Drive access.</li>
+<li>PET can then create and maintain its <code>pet-sync.json</code> backup in your own Google Drive.</li>
+</ol>
+<h3>Enabling Google Drive sync (for your own copy)</h3>
+<p>If you fork PET and publish your own GitHub Pages copy, you must create and configure your own Google OAuth Client ID for that site:</p>
+<ol>
+<li>Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a> and create a new project (any name).</li>
+<li>Go to <strong>APIs &amp; Services → Library</strong> and enable the <strong>Google Drive API</strong>.</li>
+<li>Go to <strong>Google Auth Platform / OAuth consent screen</strong> and configure your app details and test users as required.</li>
+<li>Create an <strong>OAuth client ID</strong> for a <strong>Web application</strong>. Under <strong>Authorized JavaScript origins</strong>, add the origin of your own GitHub Pages site (for example <code>https://yourname.github.io</code>).</li>
+<li>Copy the generated Client ID.</li>
+<li>In your copy of PET, replace the built-in PET OAuth Client ID in <code>index.html</code> with your own Client ID.</li>
+</ol>
+<p>Nothing here is stored in a central PET database. PET's core data remains in your browser, and Google Drive backup is stored in your own Google account when you explicitly connect it.</p>
+<h3>If you want anyone (not just you) to connect Drive without a warning screen</h3>
+<p>PET only requests the <code>drive.file</code> scope — access limited to files PET itself creates — which Google classifies as <strong>non-sensitive</strong>. That means opening this up to the public only requires a lightweight "brand verification" (app name, logo, support email, a privacy policy page), not the heavier review or paid security audit that broader Drive/Sheets access would trigger. See <strong>OAuth consent screen → Publish App</strong> in Cloud Console once your app details are filled in.</p>
+<h2>Version</h2>
+<p>Personal Expense Tracker (PET) • Local-first, with optional Google Drive sync</p>
+<h2>License</h2>
+<p>MIT — see <a href="./LICENSE" target="_blank" rel="noopener noreferrer">LICENSE</a>. You're free to use, modify, and share your own version.</p>
+</main></div></body></html>
