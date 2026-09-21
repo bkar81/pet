@@ -64,7 +64,31 @@ Google Drive sync is entirely **optional and off by default**. Nothing is ever s
 
 ## Sharing / forking PET
 
-This project is free to fork and reuse under the MIT license. Each person's copy keeps its own data in their own browser storage — there is no shared central database. Google Drive sync requires each copy to use its own free Google OAuth Client ID; see the setup section below.
+This project is free to fork and reuse under the MIT license. Each person's copy keeps its own data in their own browser storage — there is no shared central database.
+
+**Official PET deployment:** Google Drive sync is already configured. Users only need to go to **Settings → Sync → Connect Google Drive**, choose their Google account, and authorize PET. They do not need to create or enter a Google OAuth Client ID.
+
+**Important for anyone forking or deploying their own copy:** the Google OAuth Client ID included in the source code is for the official PET deployment. **You must replace that Client ID with your own Google OAuth Client ID before deploying your copy**, and configure your OAuth client for your own deployment URL/domain.
+
+### Enabling Google Drive sync (optional)
+
+**If you are using the official PET deployment:** no Google Cloud setup is required. Go to **Settings → Sync**, tap **Connect Google Drive**, choose your Google account, and authorize PET.
+
+**If you are forking or deploying your own copy:** you must use your own Google OAuth Client ID. Do not use the Client ID included for the official PET deployment.
+
+One-time setup for your own deployment:
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a project (or use an existing one).
+2. Enable the **Google Drive API**.
+3. Configure the **OAuth consent screen** for your application.
+4. Create an **OAuth client ID** for a **Web application**.
+5. Configure the OAuth client for the URL/origin where your own PET copy will be hosted.
+6. Replace the `PET_GOOGLE_CLIENT_ID` value in `index.html` with your own Client ID.
+7. Deploy your copy and test **Settings → Sync → Connect Google Drive**.
+
+The official PET Client ID is intended only for the official PET deployment. Your own deployment should use credentials configured for your own URL/origin.
+
+Nothing here is stored anywhere but your own browser and your own Google account.
 
 ## Running your own copy
 
@@ -72,18 +96,27 @@ This project is free to fork and reuse under the MIT license. Each person's copy
 2. In your GitHub repo settings, enable **GitHub Pages** for the `main` branch (root folder). GitHub will give you a URL like `https://yourname.github.io/reponame/`.
 3. Open that URL — PET is now live and installable ("Add to Home Screen" on Android/Chrome).
 
-### Enabling Google Drive sync (optional)
+### Google Drive sync in the official PET app
 
-Google requires every site to have its own registered credential — this is a one-time, free setup:
+Google Drive sync is optional and off by default. The official PET app already contains its Google OAuth configuration, so normal users do not need to create a Google Cloud project, enable an API, create credentials, or enter a Client ID.
+
+1. Open **Settings → Sync**.
+2. Tap **Connect**.
+3. Choose your Google account and approve PET's requested Drive access.
+4. PET can then create and maintain its `pet-sync.json` backup in your own Google Drive.
+
+### Enabling Google Drive sync (for your own copy)
+
+If you fork PET and publish your own GitHub Pages copy, you must create and configure your own Google OAuth Client ID for that site:
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project (any name).
 2. Go to **APIs & Services → Library** and enable the **Google Drive API**.
-3. Go to **APIs & Services → OAuth consent screen** — choose "External," fill in the basic required fields, and add your own Google account as a test user.
-4. Go to **APIs & Services → Credentials → Create Credentials → OAuth client ID**. Choose **Web application**. Under "Authorized JavaScript origins," add your GitHub Pages URL from step 2 above (e.g. `https://yourname.github.io`).
-5. Copy the generated Client ID (it looks like `xxxxxxxx.apps.googleusercontent.com`).
-6. In PET, go to **Settings → Sync**, paste the Client ID, and tap **Connect**.
+3. Go to **Google Auth Platform / OAuth consent screen** and configure your app details and test users as required.
+4. Create an **OAuth client ID** for a **Web application**. Under **Authorized JavaScript origins**, add the origin of your own GitHub Pages site (for example `https://yourname.github.io`).
+5. Copy the generated Client ID.
+6. In your copy of PET, replace the built-in PET OAuth Client ID in `index.html` with your own Client ID.
 
-Nothing here is stored anywhere but your own browser and your own Google account.
+Nothing here is stored in a central PET database. PET's core data remains in your browser, and Google Drive backup is stored in your own Google account when you explicitly connect it.
 
 ### If you want anyone (not just you) to connect Drive without a warning screen
 
