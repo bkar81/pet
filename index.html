@@ -1744,6 +1744,7 @@ function downloadBlob(content, filename, type){
 // service worker (see service-worker.js), and no data ever leaves the device
 // unless the user explicitly connects Google Drive.
 const SYNC_KEY = "pet.sync.v1";
+const SYNC_BASE_KEY = "pet.sync.base.v1";
 const DRIVE_FILE_NAME = "pet-sync.json";
 const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive.file";
 
@@ -1754,22 +1755,186 @@ const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive.file";
 const PET_GOOGLE_CLIENT_ID = "710554381194-beitt2baeios1s1do77evh31f2iignae.apps.googleusercontent.com";
 
 function loadSyncConfig(){
+  const d = {clientId:"", driveFileId:null, lastSyncedAt:null, wasConnected:false, accountEmail:null};
   try{
     const raw = localStorage.getItem(SYNC_KEY);
-    return raw ? JSON.parse(raw) : {clientId:"", autoSync:false, driveFileId:null, lastSyncedAt:null, wasConnected:false, conflictPending:false};
-  }catch(e){ return {clientId:"", autoSync:false, driveFileId:null, lastSyncedAt:null, wasConnected:false, conflictPending:false}; }
+    return raw ? {...d, ...JSON.parse(raw)} : d;
+  }catch(e){ return d; }
 }
 function saveSyncConfig(){ localStorage.setItem(SYNC_KEY, JSON.stringify(syncConfig)); }
 let syncConfig = loadSyncConfig();
 let driveAccessToken = null;
-let gisTokenClient = null;
-let autoSyncTimer = null;
+let driveTokenExpiresAt = 0;
+let syncBusy = false;
+let driveDupWarned = false;
+
+/* ---------- 3-way sync: pure logic ----------
+   PET records carry no "updated" timestamp, so every record (expense, category, sub-category,
+   account, sub-account) is fingerprinted instead. "Base" = the fingerprints this device saw the last
+   time it was in sync with Drive. Comparing Local, Remote and Base tells us what each side added,
+   changed or deleted since then. */
+function cyrb53(str){
+  let h1=0xdeadbeef, h2=0x41c6ce57;
+  for(let i=0;i<str.length;i++){ const ch=str.charCodeAt(i); h1=Math.imul(h1^ch,2654435761); h2=Math.imul(h2^ch,1597334677); }
+  h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);
+  h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
+  return (4294967296*(2097151&h2)+(h1>>>0)).toString(36);
+}
+function canon(v){
+  if(Array.isArray(v)) return "["+v.map(canon).join(",")+"]";
+  if(v && typeof v==="object") return "{"+Object.keys(v).filter(k=>v[k]!==undefined).sort().map(k=>JSON.stringify(k)+":"+canon(v[k])).join(",")+"}";
+  return JSON.stringify(v);
+}
+function flattenState(st){
+  const m = new Map();
+  const put = (k,o)=>m.set(k,{obj:o, hash:cyrb53(canon(o))});
+  (st.categories||[]).forEach(c=>{ const {subs, ...rest} = c; put("c:"+c.id, rest); (subs||[]).forEach(s=>put("cs:"+c.id+":"+s.id, s)); });
+  (st.accounts||[]).forEach(a=>{ const {subs, ...rest} = a; put("a:"+a.id, rest); (subs||[]).forEach(s=>put("as:"+a.id+":"+s.id, s)); });
+  (st.transactions||[]).forEach(t=>put("t:"+t.id, t));
+  return m;
+}
+function hashesOf(m){ const o={}; m.forEach((v,k)=>{ o[k]=v.hash; }); return o; }
+function unflattenState(m){
+  const cats=[], accs=[], txns=[], cIdx=new Map(), aIdx=new Map();
+  m.forEach((v,k)=>{
+    if(k.startsWith("c:")){ const c={...v.obj, subs:[]}; cats.push(c); cIdx.set(v.obj.id,c); }
+    else if(k.startsWith("a:")){ const a={...v.obj, subs:[]}; accs.push(a); aIdx.set(v.obj.id,a); }
+    else if(k.startsWith("t:")) txns.push(v.obj);
+  });
+  m.forEach((v,k)=>{
+    if(k.startsWith("cs:")){ const p=cIdx.get(k.split(":")[1]); if(p) p.subs.push(v.obj); }   // sub of a deleted parent is dropped
+    else if(k.startsWith("as:")){ const p=aIdx.get(k.split(":")[1]); if(p) p.subs.push(v.obj); }
+  });
+  const byOrder=(a,b)=>(a.order||0)-(b.order||0);
+  cats.sort(byOrder); accs.sort(byOrder);
+  cats.concat(accs).forEach(x=>x.subs.sort(byOrder));
+  normalizeOrders(cats); normalizeOrders(accs);   // same clean-up PET does on load
+  return {categories:cats, accounts:accs, transactions:txns};
+}
+function changesSince(st, baseHashes){
+  const m = flattenState(st), c = {added:0, edited:0, removed:0};
+  m.forEach((v,k)=>{
+    if(!Object.prototype.hasOwnProperty.call(baseHashes,k)) c.added++;
+    else if(baseHashes[k]!==v.hash) c.edited++;
+  });
+  Object.keys(baseHashes).forEach(k=>{ if(!m.has(k)) c.removed++; });
+  c.total = c.added + c.edited + c.removed;
+  return c;
+}
+// Same fingerprint = same categories/accounts as a brand-new PET (ids differ per device, so names are compared).
+function stateSig(st){
+  const so=(a,b)=>(a.order||0)-(b.order||0);
+  return JSON.stringify([
+    [...(st.categories||[])].sort(so).map(c=>[c.name,c.icon,[...(c.subs||[])].sort(so).map(s=>s.name)]),
+    [...(st.accounts||[])].sort(so).map(a=>[a.name,a.settlement,[...(a.subs||[])].sort(so).map(s=>s.name)])
+  ]);
+}
+const DEFAULT_SIG = stateSig(defaultState());
+function isPristineState(st){ return !(st.transactions||[]).length && stateSig(st)===DEFAULT_SIG; }
+
+// Each device creates its default categories with different random ids. Before a FIRST merge, link
+// same-named categories/accounts/sub-items to the Drive copy's ids so they combine instead of doubling up.
+function alignToRemote(local, remote){
+  const L = JSON.parse(JSON.stringify(local)), norm = s=>String(s||"").trim().toLowerCase();
+  const own = (o,k)=>Object.prototype.hasOwnProperty.call(o,k);
+  const align = (lList, rList, idMap, subMap)=>{
+    const rIds = new Set(rList.map(x=>x.id)), lIds = new Set(lList.map(x=>x.id)), used = new Set();
+    lList.forEach(x=>{ if(rIds.has(x.id)) used.add(x.id); });
+    lList.forEach(x=>{
+      if(rIds.has(x.id)) return;
+      const m = rList.find(y=>!used.has(y.id) && !lIds.has(y.id) && norm(y.name)===norm(x.name));
+      if(!m) return;
+      used.add(m.id); const oldId = x.id; idMap[oldId] = m.id; x.id = m.id;
+      const rs = m.subs||[], rsIds = new Set(rs.map(s=>s.id)), lsIds = new Set((x.subs||[]).map(s=>s.id)), usedS = new Set();
+      (x.subs||[]).forEach(s=>{ if(rsIds.has(s.id)) usedS.add(s.id); });
+      (x.subs||[]).forEach(s=>{
+        if(rsIds.has(s.id)) return;
+        const ms = rs.find(t=>!usedS.has(t.id) && !lsIds.has(t.id) && norm(t.name)===norm(s.name));
+        if(!ms) return;
+        usedS.add(ms.id); subMap[oldId+"|"+s.id] = ms.id; s.id = ms.id;
+      });
+    });
+  };
+  const catMap={}, catSub={}, accMap={}, accSub={};
+  align(L.categories||[], remote.categories||[], catMap, catSub);
+  align(L.accounts||[], remote.accounts||[], accMap, accSub);
+  (L.transactions||[]).forEach(t=>{
+    const oc=t.catId, oa=t.accId, os=t.subId, oas=t.subAccId;
+    if(oc && own(catMap,oc)) t.catId = catMap[oc];
+    if(os && own(catSub,oc+"|"+os)) t.subId = catSub[oc+"|"+os];
+    if(oa && own(accMap,oa)) t.accId = accMap[oa];
+    if(oas && own(accSub,oa+"|"+oas)) t.subAccId = accSub[oa+"|"+oas];
+  });
+  return L;
+}
+
+// Per-record 3-way merge. baseHashes = {} on a first sync (=> plain union).
+function mergeStates(local, remote, baseHashes){
+  const L = flattenState(local), R = flattenState(remote), out = new Map();
+  let conflicts = 0;
+  new Set([...L.keys(), ...R.keys()]).forEach(k=>{
+    const l=L.get(k), r=R.get(k), inBase=Object.prototype.hasOwnProperty.call(baseHashes,k), b=baseHashes[k];
+    const lCh = l ? (!inBase || l.hash!==b) : inBase;
+    const rCh = r ? (!inBase || r.hash!==b) : inBase;
+    if(l && r){
+      if(l.hash===r.hash || !rCh) out.set(k,l);
+      else if(!lCh) out.set(k,r);
+      else { out.set(k,l); conflicts++; }              // changed differently on both sides: this device's version wins
+    }else if(l){
+      if(!inBase) out.set(k,l);                        // new on this device
+      else if(lCh){ out.set(k,l); conflicts++; }       // deleted on Drive but edited here -> keep the edit
+      /* else: deleted elsewhere, untouched here -> accept the deletion */
+    }else if(r){
+      if(!inBase) out.set(k,r);                        // new on Drive
+      else if(rCh){ out.set(k,r); conflicts++; }       // deleted here but edited on Drive -> keep the edit
+      /* else: deleted here, untouched on Drive -> stays deleted */
+    }
+  });
+  return {state:unflattenState(out), conflicts};
+}
+
+function planSync(local, remote, base){
+  if(remote===null) return {action:"upload"};                          // no Drive file yet
+  if(!base || isPristineState(local)){                                 // never synced with this file, or this device was reset
+    if(isPristineState(local)) return isPristineState(remote) ? {action:"upload"} : {action:"restore", first:true};
+    if(isPristineState(remote)) return {action:"upload"};
+    return {action:"merge", first:true};
+  }
+  const lc = changesSince(local, base), rc = changesSince(remote, base);
+  if(!lc.total && !rc.total) return {action:"noop"};
+  if(!rc.total) return {action:"upload", lc};                          // only this device changed
+  if(!lc.total) return {action:"restore", lc, rc};                     // only Drive changed
+  return {action:"merge", lc, rc};                                     // both changed
+}
+
+function loadSyncBase(fileId){
+  try{
+    const b = JSON.parse(localStorage.getItem(SYNC_BASE_KEY)||"null");
+    if(b && b.hashes && b.fileId===fileId) return b.hashes;
+  }catch(e){}
+  return null;                                                         // null = never synced with this Drive file
+}
+function saveSyncBase(fileId, st){
+  try{ localStorage.setItem(SYNC_BASE_KEY, JSON.stringify({fileId, hashes:hashesOf(flattenState(st))})); }catch(e){}
+}
+function unsyncedCount(){
+  try{
+    if(!syncConfig.wasConnected) return 0;
+    const base = syncConfig.driveFileId ? loadSyncBase(syncConfig.driveFileId) : null;
+    if(!base) return isPristineState(state) ? 0 : flattenState(state).size;
+    return changesSince(state, base).total;
+  }catch(e){ return 0; }
+}
+const fmtChanges = c => `${c.added} new, ${c.edited} changed, ${c.removed} removed`;
+
+/* ---------- Google sign-in ---------- */
+function hasValidDriveToken(){ return !!driveAccessToken && Date.now() < driveTokenExpiresAt - 30000; }
 
 function ensureGisLoaded(){ return !!(window.google && window.google.accounts && window.google.accounts.oauth2); }
 
 // The Google sign-in script is only ever fetched when actually needed — on a
-// "Connect" tap, or a previously-authorized auto-reconnect. It is never
-// loaded just from opening the app, so nothing Google-related can appear
+// "Connect" tap, or when Settings → Sync is opened for a previously connected account.
+// It is never loaded just from opening the app, so nothing Google-related can appear
 // unless sync has been explicitly set up.
 let gisScriptPromise = null;
 function loadGisScript(){
@@ -1786,58 +1951,142 @@ function loadGisScript(){
   return gisScriptPromise;
 }
 
-function initTokenClient(clientId){
-  if(!ensureGisLoaded()) return null;
-  return google.accounts.oauth2.initTokenClient({
-    client_id: clientId,
-    scope: DRIVE_SCOPES,
-    callback: (resp)=>{
-      if(!resp || resp.error){ driveAccessToken = null; renderSettingsView(); return; }
-      driveAccessToken = resp.access_token;
-      syncConfig.wasConnected = true;
-      saveSyncConfig();
-      renderSettingsView();
-    }
+// prompt "" = no consent screen (quick renewal when already authorised);
+// hint = the account this device last used, so Google doesn't show an account chooser.
+function requestDriveToken(promptType, hint){
+  return new Promise((resolve, reject)=>{
+    const cfg = {
+      client_id: PET_GOOGLE_CLIENT_ID,
+      scope: DRIVE_SCOPES,
+      callback: (resp)=>{
+        if(resp && resp.access_token){
+          driveAccessToken = resp.access_token;
+          driveTokenExpiresAt = Date.now() + ((Number(resp.expires_in)||3600) * 1000);
+          resolve(resp.access_token);
+        }else reject(new Error((resp && (resp.error_description||resp.error)) || "No access token"));
+      },
+      error_callback: (err)=>reject(new Error((err && (err.type||err.message)) || "Sign-in cancelled"))
+    };
+    if(hint) cfg.hint = hint;
+    google.accounts.oauth2.initTokenClient(cfg).requestAccessToken({prompt: promptType});
   });
 }
 
-function connectGoogleDrive(){
-  loadGisScript().then(()=>{
-    gisTokenClient = initTokenClient(PET_GOOGLE_CLIENT_ID);
-    // Only force the full "choose account → review permissions → Allow" screen
-    // the very first time. Once you've granted consent once, Google remembers
-    // it — reconnecting afterward should just need a quick account pick.
-    const promptType = syncConfig.wasConnected ? "" : "consent";
-    if(gisTokenClient) gisTokenClient.requestAccessToken({prompt: promptType});
-  }).catch(()=>{
-    showNotice("Google Drive Sync", "Google sign-in needs an internet connection. Connect and try again.");
+async function driveRequest(url, opts){
+  const res = await fetch(url, {...(opts||{}), headers:{...((opts&&opts.headers)||{}), Authorization:"Bearer "+driveAccessToken}});
+  if(!res.ok){ const e = new Error("Drive request failed ("+res.status+")"); e.status = res.status; throw e; }
+  return res;
+}
+async function fetchAccountEmail(){
+  try{
+    const res = await driveRequest("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)");
+    const d = await res.json();
+    return (d.user && d.user.emailAddress) || null;
+  }catch(e){ return null; }
+}
+
+// Small choice dialog (3+ buttons) styled like PET's own dialogs.
+function petChoice(title, message, buttons){
+  return new Promise(resolve=>{
+    const ov = document.createElement("div");
+    ov.style.cssText = "position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99999;background:rgba(0,0,0,.55);padding:20px;";
+    const box = document.createElement("div");
+    box.setAttribute("role","dialog"); box.setAttribute("aria-modal","true");
+    box.style.cssText = "width:min(440px,100%);background:var(--surface,#191919);color:var(--text,#f3f3f3);border:1px solid var(--border,#333);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.45);padding:20px;";
+    const h = document.createElement("div"); h.style.cssText = "font-size:17px;font-weight:700;margin:0 0 10px;"; h.textContent = title;
+    const p = document.createElement("div"); p.style.cssText = "font-size:14px;line-height:1.55;color:var(--text-dim,#c7c7c7);white-space:pre-wrap;"; p.textContent = message;
+    const row = document.createElement("div"); row.style.cssText = "display:flex;justify-content:flex-end;gap:9px;margin-top:18px;flex-wrap:wrap;";
+    buttons.forEach(b=>{
+      const el = document.createElement("button"); el.type = "button"; el.textContent = b.label;
+      el.style.cssText = "border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:700;" + (b.primary
+        ? "border:0;background:var(--accent,#d9a441);color:#111;"
+        : "background:var(--surface-2,#202020);color:var(--text-dim,#c7c7c7);border:1px solid var(--border,#444);");
+      el.onclick = ()=>{ ov.remove(); resolve(b.value); };
+      row.appendChild(el);
+    });
+    box.append(h,p,row); ov.appendChild(box); document.body.appendChild(ov);
   });
+}
+
+/* ---------- Account guard: remember WHICH Google account this device syncs with ---------- */
+// Returns true to continue connecting, false if the user cancelled.
+async function verifyAccount(){
+  const email = await fetchAccountEmail();
+  const prev = syncConfig.accountEmail || null;
+  if(email && prev && email.toLowerCase()!==prev.toLowerCase()){
+    const choice = await petChoice("Different Google account",
+      "This device was last synced with "+prev+".\nYou are now connecting "+email+".\n\n"+
+      "• Sync this device's data to the new account: it is merged into "+email+"'s Drive.\n"+
+      "• Reset this device first: clears the expenses, categories and accounts on this device so you can restore "+email+"'s data from Drive.",
+      [{label:"Cancel", value:"cancel"},
+       {label:"Reset this device first", value:"reset"},
+       {label:"Sync this device's data to new account", value:"keep", primary:true}]);
+    if(choice==="reset"){
+      if(!await petConfirm("Reset This Device", "This erases ALL expenses, categories and accounts on this device. Continue?")) return false;
+      state = defaultState(); save();
+      syncConfig.driveFileId = null; syncConfig.lastSyncedAt = null;
+      try{ localStorage.removeItem(SYNC_BASE_KEY); }catch(e){}
+      refreshCurrentView();
+    }else if(choice==="keep"){
+      syncConfig.driveFileId = null;                                       // the new account has its own Drive file
+      try{ localStorage.removeItem(SYNC_BASE_KEY); }catch(e){}             // and the old "last synced" memory no longer applies
+    }else return false;
+  }
+  if(email) syncConfig.accountEmail = email;
+  saveSyncConfig();
+  return true;
+}
+
+async function connectGoogleDrive(){
+  try{
+    await loadGisScript();
+    // Only force the full "choose account → review permissions → Allow" screen the very first time.
+    await requestDriveToken(syncConfig.wasConnected ? "" : "consent", syncConfig.accountEmail);
+    if(!await verifyAccount()){ driveAccessToken = null; driveTokenExpiresAt = 0; renderSettingsView(); return; }
+    syncConfig.wasConnected = true; saveSyncConfig();
+    renderSettingsView();
+  }catch(e){
+    console.warn("Google connect failed", e);
+    driveAccessToken = null; driveTokenExpiresAt = 0;
+    renderSettingsView();
+    if(e && e.message==="load-failed") showNotice("Google Drive Sync", "Google sign-in needs an internet connection. Connect and try again.");
+  }
+}
+
+// Renew an expired connection without the consent screen. Must be called straight from a tap.
+async function reconnectDrive(){
+  try{
+    await loadGisScript();
+    await requestDriveToken("", syncConfig.accountEmail);
+    if(!await verifyAccount()){ driveAccessToken = null; driveTokenExpiresAt = 0; renderSettingsView(); return false; }
+    syncConfig.wasConnected = true; saveSyncConfig();
+    return true;
+  }catch(e){
+    console.warn("Reconnect failed", e);
+    driveAccessToken = null; driveTokenExpiresAt = 0;
+    renderSettingsView();
+    showNotice("Google Drive Sync", e && e.message==="load-failed"
+      ? "Google sign-in needs an internet connection. Connect and try again."
+      : "Couldn't renew the Google connection. Tap Connect to sign in again.");
+    return false;
+  }
 }
 
 async function disconnectGoogleDrive(){
-  if(!await petConfirm("Google Drive Sync", "Disconnect Google Drive? Auto-sync will stop. Nothing on this device is affected.")) return;
+  if(!await petConfirm("Google Drive Sync", "Disconnect Google Drive? Nothing on this device or in Drive is deleted.")) return;
   if(driveAccessToken && ensureGisLoaded()) google.accounts.oauth2.revoke(driveAccessToken, ()=>{});
-  driveAccessToken = null;
-  syncConfig.autoSync = false;
-  syncConfig.wasConnected = false;
+  driveAccessToken = null; driveTokenExpiresAt = 0;
+  syncConfig.wasConnected = false;                 // driveFileId + accountEmail are kept for the account guard
   saveSyncConfig();
   renderSettingsView();
 }
 
-function scheduleAutoSync(){
-  if(!syncConfig.autoSync || !driveAccessToken) return;
-  clearTimeout(autoSyncTimer);
-  autoSyncTimer = setTimeout(()=> driveSyncNow(true), 4000);
-}
-
-async function driveFindFile(){
+/* ---------- Drive file access ---------- */
+async function listDriveFiles(){
   const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime)`, {
-    headers: {Authorization: "Bearer "+driveAccessToken}
-  });
-  if(!res.ok) throw new Error("Drive lookup failed");
+  const res = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime%20desc&fields=files(id,name,modifiedTime)&spaces=drive`);
   const data = await res.json();
-  return (data.files && data.files[0]) || null;
+  return data.files || [];                          // newest first
 }
 async function driveUpload(fileId, content){
   const metadata = {name: DRIVE_FILE_NAME, mimeType: "application/json"};
@@ -1848,100 +2097,101 @@ async function driveUpload(fileId, content){
   const url = fileId
     ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`
     : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
-  const res = await fetch(url, {
-    method: fileId ? "PATCH" : "POST",
-    headers: {Authorization: "Bearer "+driveAccessToken, "Content-Type": `multipart/related; boundary=${boundary}`},
-    body
-  });
-  if(!res.ok) throw new Error("Drive upload failed");
+  const res = await driveRequest(url, {method: fileId ? "PATCH" : "POST", headers:{"Content-Type": `multipart/related; boundary=${boundary}`}, body});
   return res.json();
 }
 async function driveDownload(fileId){
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-    headers: {Authorization: "Bearer "+driveAccessToken}
-  });
-  if(!res.ok) throw new Error("Drive download failed");
+  const res = await driveRequest(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
   return res.text();
 }
 
-// Compares Drive's copy against what this device last knew about, so a sync
-// never silently overwrites changes made from another device (e.g. phone)
-// that this device (e.g. laptop) hasn't seen yet.
-async function driveHasNewerRemote(){
-  const existing = await driveFindFile();
-  if(!existing) return {conflict:false, existing:null};
-  if(!syncConfig.lastSyncedAt) return {conflict:true, existing};
-  const remoteTime = new Date(existing.modifiedTime).getTime();
-  const knownTime = new Date(syncConfig.lastSyncedAt).getTime();
-  return {conflict: remoteTime > knownTime + 5000, existing}; // small buffer for clock/latency jitter
-}
-
-async function driveSyncNow(silent, forceOverwrite){
-  if(!driveAccessToken){ if(!silent) showNotice("Google Drive Sync", "Connect Google Drive first."); return; }
+/* ---------- Sync ---------- */
+async function driveSyncNow(){
+  if(syncBusy) return;
+  if(!navigator.onLine){ showNotice("Google Drive Sync", "You are offline. Connect to the internet and try again."); return; }
+  if(!hasValidDriveToken()){
+    if(!syncConfig.wasConnected){ showNotice("Google Drive Sync", "Connect Google Drive first."); return; }
+    if(!await reconnectDrive()) return;             // token expired: renew quietly, then continue
+  }
+  syncBusy = true; renderSettingsView();
   try{
-    if(!forceOverwrite){
-      const check = await driveHasNewerRemote();
-      if(check.conflict){
-        if(silent){
-          // Never silently overwrite in the background — just flag it and
-          // let the user decide next time they open Settings → Sync.
-          syncConfig.conflictPending = true;
-          saveSyncConfig();
-          renderSettingsView();
-          return;
-        }
-        const when = check.existing && check.existing.modifiedTime
-          ? new Date(check.existing.modifiedTime).toLocaleString() : "another device";
-        const wantsRestore = await petConfirm(
-          "Google Drive Sync Conflict",
-          `Google Drive has a newer backup from ${when} that this device hasn't loaded yet — likely from another device.\n\n`+
-          `Restore that backup now?`
-        );
-        if(wantsRestore){ await driveRestoreNow(); return; }
-        const wantsOverwrite = await petConfirm(
-          "Google Drive Sync Conflict",
-          "Push this device's data to Drive anyway? This will overwrite that newer backup."
-        );
-        if(!wantsOverwrite) return;
+    if(!syncConfig.accountEmail){ const em = await fetchAccountEmail(); if(em){ syncConfig.accountEmail = em; saveSyncConfig(); } }
+    const files = await listDriveFiles();
+    // Use the file this device remembers if it still exists; otherwise the newest one (or none yet).
+    let fileId = (syncConfig.driveFileId && files.some(f=>f.id===syncConfig.driveFileId)) ? syncConfig.driveFileId : (files.length ? files[0].id : null);
+    if(files.length>1 && !driveDupWarned){
+      const list = files.map(f=>"• modified "+new Date(f.modifiedTime).toLocaleString()+(f.id===fileId?"  ← will be used":"")).join("\n");
+      const c = await petChoice("Multiple PET files on Google Drive",
+        `Google Drive has ${files.length} files named "${DRIVE_FILE_NAME}":\n${list}\n\nSync will use the one marked above. Open Google Drive and delete the extra file(s) to avoid confusion.`,
+        [{label:"Cancel sync", value:"cancel"},{label:"Continue", value:"go", primary:true}]);
+      if(c!=="go") return;
+      driveDupWarned = true;
+    }
+    let remote = null;
+    if(fileId){
+      remote = JSON.parse(await driveDownload(fileId));
+      if(!Array.isArray(remote.categories) || !Array.isArray(remote.accounts) || !Array.isArray(remote.transactions)){
+        showNotice("Google Drive Sync", "The file on Drive doesn't look like a valid PET backup, so nothing was changed."); return;
       }
     }
-    const existing = await driveFindFile();
-    const fileId = existing ? existing.id : syncConfig.driveFileId;
-    const content = JSON.stringify(completeSnapshot());
-    const result = await driveUpload(fileId, content);
-    syncConfig.driveFileId = result.id || fileId;
+    const base = fileId ? loadSyncBase(fileId) : null;
+    const plan = planSync(state, remote, base);
+    let finalState = state, upload = false;
+
+    if(plan.action==="upload"){
+      upload = true;
+
+    }else if(plan.action==="restore"){
+      const choice = plan.first
+        ? await petChoice("Restore from Google Drive?",
+            "Google Drive contains data that is not on this device. Restore it?",
+            [{label:"Cancel", value:"cancel"},{label:"Restore from Drive", value:"restore", primary:true}])
+        : await petChoice("Newer data on Google Drive",
+            "Google Drive has newer data than this device ("+fmtChanges(plan.rc)+").\nRestore the newer Drive data to this device?",
+            [{label:"Keep Local", value:"cancel"},{label:"Restore", value:"restore", primary:true}]);
+      if(choice!=="restore") return;                // nothing changes locally and Drive is NOT overwritten
+      finalState = {categories: remote.categories, accounts: remote.accounts, transactions: remote.transactions};
+
+    }else if(plan.action==="merge"){
+      const msg = plan.first
+        ? "This device and Google Drive both already have data. Merge them?\nExpenses are combined, and categories and accounts with the same name are treated as the same."
+        : "Both this device ("+fmtChanges(plan.lc)+") and Google Drive ("+fmtChanges(plan.rc)+") changed since the last sync.\n"+
+          "Merge combines both: new items are kept, deletions are applied, and if the same item was changed on both sides this device's version is kept.";
+      const choice = await petChoice("Merge with Google Drive?", msg, [
+        {label:"Cancel", value:"cancel"},
+        {label:"Overwrite Drive", value:"local"},
+        {label:"Merge", value:"merge", primary:true}]);
+      if(choice!=="merge" && choice!=="local") return;
+      if(choice==="local" && !await petConfirm("Overwrite Drive", "Replace the copy on Google Drive with this device's data? Changes made on other devices will be lost.")) return;
+      if(choice==="merge"){
+        const m = mergeStates(plan.first ? alignToRemote(state, remote) : state, remote, base||{});
+        finalState = m.state;
+      }
+      upload = true;                                // "Overwrite Drive" = keep this device's data, push it to Drive
+    }
+
+    if(finalState!==state){
+      state = finalState; save();
+      refreshCurrentView();
+    }
+    if(upload){
+      const result = await driveUpload(fileId, JSON.stringify(completeSnapshot()));
+      fileId = result.id || fileId;
+    }
+    saveSyncBase(fileId, state);
+    syncConfig.driveFileId = fileId;
     syncConfig.lastSyncedAt = new Date().toISOString();
-    syncConfig.conflictPending = false;
     saveSyncConfig();
-    renderSettingsView();
-    if(!silent) showNotice("Google Drive Sync", "Synced to Google Drive.");
+    showNotice("Google Drive Sync", "Synced to Google Drive.");
   }catch(e){
     console.error(e);
-    if(!silent) showNotice("Google Drive Sync", "Sync failed. Check your connection and try again.");
+    if(e && e.status===401){
+      driveAccessToken = null; driveTokenExpiresAt = 0;
+      showNotice("Google Drive Sync", "Your Google session expired. Tap Sync again to reconnect.");
+    }else showNotice("Google Drive Sync", "Sync failed. Check your connection and try again.");
+  }finally{
+    syncBusy = false; renderSettingsView();
   }
-}
-
-async function driveRestoreNow(){
-  if(!driveAccessToken){ showNotice("Google Drive Sync", "Connect Google Drive first."); return; }
-  try{
-    const existing = await driveFindFile();
-    if(!existing){ showNotice("Google Drive Restore", "No backup found in Drive yet. Try Sync now first."); return; }
-    const text = await driveDownload(existing.id);
-    const data = JSON.parse(text);
-    if(!Array.isArray(data.categories) || !Array.isArray(data.accounts) || !Array.isArray(data.transactions)){
-      showNotice("Google Drive Restore", "The Drive backup doesn't look like a valid PET backup."); return;
-    }
-    const when = data.exportedAt ? new Date(data.exportedAt).toLocaleString() : "an earlier sync";
-    if(!await petConfirm("Google Drive Restore", `Replace this device's data with the Drive backup from ${when}? This cannot be undone.`)) return;
-    state = {categories: data.categories, accounts: data.accounts, transactions: data.transactions};
-    save();
-    syncConfig.driveFileId = existing.id;
-    syncConfig.lastSyncedAt = existing.modifiedTime || new Date().toISOString();
-    syncConfig.conflictPending = false;
-    saveSyncConfig();
-    renderSettingsView(); refreshCurrentView();
-    showNotice("Google Drive Restore", "Restored from Google Drive.");
-  }catch(e){ console.error(e); showNotice("Google Drive Restore", "Couldn't restore from Drive. Check your connection and try again."); }
 }
 
 function buildSyncSection(){
@@ -1955,51 +2205,28 @@ function buildSyncSection(){
 
   // The PET OAuth Client ID is built into the official app.
   // Users only need to tap Connect and authorize their Google account.
+  const connected = hasValidDriveToken();
+  const expired = !connected && syncConfig.wasConnected;
+  if(expired) loadGisScript().catch(()=>{});       // ready for the one-tap renewal
+  const esc = s=>String(s).replace(/[&<>"]/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+  const when = syncConfig.lastSyncedAt ? new Date(syncConfig.lastSyncedAt).toLocaleString() : null;
 
-  const sessionExpired = !driveAccessToken && syncConfig.wasConnected;
   const statusRow = document.createElement("div"); statusRow.className = "data-row";
-  statusRow.innerHTML = `<div><div class="t">${driveAccessToken? "Connected" : sessionExpired ? "Reconnect needed" : "Not connected"}</div>
-    <div class="s">${sessionExpired
-      ? "Normal after reopening the app — Google sign-in doesn't stay silently active. Tap Connect to resume."
-      : (syncConfig.lastSyncedAt? "Last synced "+new Date(syncConfig.lastSyncedAt).toLocaleString() : "Never synced")}</div></div>
-    <button type="button">${driveAccessToken? "Disconnect" : "Connect"}</button>`;
-  statusRow.querySelector("button").addEventListener("click", ()=> driveAccessToken ? disconnectGoogleDrive() : connectGoogleDrive());
+  statusRow.innerHTML = `<div><div class="t">${connected ? "Connected" : expired ? "Reconnect needed" : "Not connected"}</div>
+    <div class="s">${expired ? "Session expired — tap Sync to reconnect automatically.<br>" : ""}${when ? "Last synced "+esc(when) : "Never synced"}</div>
+    ${syncConfig.accountEmail && (connected||expired) ? `<div class="s" style="color:var(--accent);font-weight:700;">${when ? "with " : "Connected as "}${esc(syncConfig.accountEmail)}</div>` : ""}</div>
+    <button type="button">${connected ? "Disconnect" : "Connect"}</button>`;
+  statusRow.querySelector("button").addEventListener("click", ()=> connected ? disconnectGoogleDrive() : connectGoogleDrive());
   wrap.appendChild(statusRow);
 
-  if(driveAccessToken && syncConfig.conflictPending){
-    const warnBox = document.createElement("div");
-    warnBox.className = "data-row";
-    warnBox.style.cssText = "border-color:var(--accent);flex-direction:column;align-items:stretch;";
-    warnBox.innerHTML = `<div class="t" style="color:var(--accent);margin-bottom:4px;">⚠ Newer backup found on Drive</div>
-      <div class="s" style="margin-bottom:10px;">Likely synced from another device. Auto-sync paused itself rather than risk overwriting it. Choose how to proceed:</div>
-      <div style="display:flex;gap:8px;">
-        <button type="button" id="conflictRestoreBtn" class="btn btn-ghost" style="flex:1;padding:9px;font-size:13px;">Restore it</button>
-        <button type="button" id="conflictOverwriteBtn" class="btn btn-ghost" style="flex:1;padding:9px;font-size:13px;">Keep this device's data</button>
-      </div>`;
-    warnBox.querySelector("#conflictRestoreBtn").addEventListener("click", driveRestoreNow);
-    warnBox.querySelector("#conflictOverwriteBtn").addEventListener("click", ()=> driveSyncNow(false, true));
-    wrap.appendChild(warnBox);
-  }
-
-  if(driveAccessToken){
-    const toggleRow = document.createElement("div"); toggleRow.className = "data-row";
-    toggleRow.innerHTML = `<div><div class="t">Auto-sync</div><div class="s">Back up to Drive automatically after changes.</div></div>
-      <button type="button">${syncConfig.autoSync? "On":"Off"}</button>`;
-    toggleRow.querySelector("button").addEventListener("click", ()=>{
-      syncConfig.autoSync = !syncConfig.autoSync; saveSyncConfig(); renderSettingsView();
-      if(syncConfig.autoSync) driveSyncNow(true);
-    });
-    wrap.appendChild(toggleRow);
-
+  if(connected || expired){
+    const n = unsyncedCount();
     const syncRow = document.createElement("div"); syncRow.className = "data-row";
-    syncRow.innerHTML = `<div><div class="t">Sync now</div><div class="s">Manually back up your current data to Drive.</div></div><button type="button">Sync</button>`;
-    syncRow.querySelector("button").addEventListener("click", ()=>driveSyncNow(false));
+    syncRow.innerHTML = `<div><div class="t">Sync now</div><div class="s">${
+      n>0 ? esc(n+" change"+(n>1?"s":"")+" not yet synced to Drive.") : "Everything on this device is synced with Drive."}</div></div>
+      <button type="button" ${syncBusy?"disabled":""}>${syncBusy ? "Syncing…" : "Sync"}${(!syncBusy && n>0) ? ` <span style="display:inline-block;min-width:18px;padding:0 6px;margin-left:4px;border-radius:9px;background:var(--accent);color:var(--accent-ink,#171308);font-size:11px;line-height:18px;text-align:center;">${n>99?"99+":n}</span>` : ""}</button>`;
+    syncRow.querySelector("button").addEventListener("click", ()=>driveSyncNow());
     wrap.appendChild(syncRow);
-
-    const restoreRow = document.createElement("div"); restoreRow.className = "data-row";
-    restoreRow.innerHTML = `<div><div class="t">Restore from Drive</div><div class="s">Replace this device's data with your latest Drive backup.</div></div><button type="button">Restore</button>`;
-    restoreRow.querySelector("button").addEventListener("click", driveRestoreNow);
-    wrap.appendChild(restoreRow);
 
     const sheetNote = document.createElement("div");
     sheetNote.style.cssText = "font-size:11.5px;color:var(--text-faint);line-height:1.5;margin-top:6px;";
